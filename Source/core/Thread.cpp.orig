@@ -1,4 +1,3 @@
-#include <limits.h>
 #include "Thread.h"
 #include "Proxy.h"
 #include "Serialization.h"
