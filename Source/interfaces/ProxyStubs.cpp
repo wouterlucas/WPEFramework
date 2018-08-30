@@ -15,6 +15,7 @@
 #include "IStreaming.h"
 #include "ITVControl.h"
 #include "IWebDriver.h"
+#include "IWebPA.h"
 #include "IWebServer.h"
 
 MODULE_NAME_DECLARATION(BUILDREF_WEBBRIDGE)
@@ -1539,6 +1540,68 @@ namespace ProxyStubs {
         nullptr
     };
 
+    ProxyStub::MethodHandler WebPAClientStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            // virtual uint32_t Configure(PluginHost::IShell* framework) = 0;
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+            RPC::Data::Frame::Writer writer(message->Response().Writer());
+
+            PluginHost::IShell* implementation = reader.Number<PluginHost::IShell*>();
+            PluginHost::IShell* proxy = RPC::Administrator::Instance().CreateProxy<PluginHost::IShell>(channel, implementation, true, false);
+
+            ASSERT((proxy != nullptr) && "Failed to create proxy");
+
+            if (proxy == nullptr) {
+                TRACE_L1(_T("Could not create a stub for IWebPAClient: %p"), implementation);
+                writer.Number<uint32_t>(Core::ERROR_RPC_CALL_FAILED);
+            }
+            else {
+                writer.Number(parameters.Implementation<IWebPAClient>()->Configure(proxy));
+                if (proxy->Release() != Core::ERROR_NONE) {
+                    TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
+                }
+            }
+        },
+        [](Core::ProxyType<Core::IPCChannel>&, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //virtual void Launch();
+            message->Parameters().Implementation<IWebPAClient>()->Launch();
+        },
+
+        nullptr
+    };
+
+    ProxyStub::MethodHandler WebPAServiceStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            // virtual uint32_t Configure(PluginHost::IShell* framework) = 0;
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+            RPC::Data::Frame::Writer writer(message->Response().Writer());
+
+            PluginHost::IShell* implementation = reader.Number<PluginHost::IShell*>();
+            PluginHost::IShell* proxy = RPC::Administrator::Instance().CreateProxy<PluginHost::IShell>(channel, implementation, true, false);
+
+            ASSERT((proxy != nullptr) && "Failed to create proxy");
+
+            if (proxy == nullptr) {
+                TRACE_L1(_T("Could not create a stub for IWebPAService: %p"), implementation);
+                writer.Number<uint32_t>(Core::ERROR_RPC_CALL_FAILED);
+            }
+            else {
+                writer.Number(parameters.Implementation<IWebPAService>()->Configure(proxy));
+                if (proxy->Release() != Core::ERROR_NONE) {
+                    TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
+                }
+            }
+        },
+        [](Core::ProxyType<Core::IPCChannel>&, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //virtual void Launch();
+            message->Parameters().Implementation<IWebPAService>()->Launch();
+        },
+
+        nullptr
+    };
+
     // IRPCLink::INotification interface stub definitions
 
     typedef ProxyStub::StubType<IBrowser, BrowserStubMethods, ProxyStub::UnknownStub> BrowserStub;
@@ -1571,6 +1634,8 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IRPCLink::INotification, RPCLinkNotificationStubMethods, ProxyStub::UnknownStub> RPCLinkNotificationStub;
     typedef ProxyStub::StubType<IPlayGiga, PlayGigaStubMethods, ProxyStub::UnknownStub> PlayGigaStub;
     typedef ProxyStub::StubType<IPower, PowerStubMethods, ProxyStub::UnknownStub> PowerStub;
+    typedef ProxyStub::StubType<IWebPAClient, WebPAClientStubMethods, ProxyStub::UnknownStub> WebPAClientStub;
+    typedef ProxyStub::StubType<IWebPAService, WebPAServiceStubMethods, ProxyStub::UnknownStub> WebPAServiceStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -3051,6 +3116,61 @@ namespace ProxyStubs {
  
     };
 
+    class WebPAClientProxy : public ProxyStub::UnknownProxyType<IWebPAClient> {
+    public:
+        WebPAClientProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~WebPAClientProxy()
+        {
+        }
+
+    public:
+        virtual uint32_t Configure(PluginHost::IShell* service)
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number<PluginHost::IShell*>(service);
+            Invoke(newMessage);
+            return (newMessage->Response().Reader().Number<uint32_t>());
+        }
+        virtual void Launch()
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
+            Invoke(newMessage);
+        }
+    };
+
+    class WebPAServiceProxy : public ProxyStub::UnknownProxyType<IWebPAService> {
+    public:
+        WebPAServiceProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~WebPAServiceProxy()
+        {
+        }
+
+    public:
+        virtual uint32_t Configure(PluginHost::IShell* service)
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number<PluginHost::IShell*>(service);
+            Invoke(newMessage);
+            return (newMessage->Response().Reader().Number<uint32_t>());
+        }
+        virtual void Launch()
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
+            Invoke(newMessage);
+        }
+    };
+
+
     // -------------------------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------------------------
@@ -3088,6 +3208,8 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IRPCLink::INotification, RPCLinkNotificationProxy, RPCLinkNotificationStub>();
             RPC::Administrator::Instance().Announce<IPlayGiga, PlayGigaProxy, PlayGigaStub>();
             RPC::Administrator::Instance().Announce<IPower, PowerProxy, PowerStub>();
+            RPC::Administrator::Instance().Announce<IWebPAClient, WebPAClientProxy, WebPAClientStub>();
+            RPC::Administrator::Instance().Announce<IWebPAService, WebPAServiceProxy, WebPAServiceStub>();
         }
 
         ~Instantiation()
