@@ -173,6 +173,18 @@ private:
         ::OCDM::ISession::KeyStatus Status () const {
             return (_status);
         }
+        const char* StatusString() const {
+            switch (_status) {
+            case ::OCDM::ISession::KeyStatus::Usable: return "Usable";
+            case ::OCDM::ISession::KeyStatus::Expired: return "Expired";
+            case ::OCDM::ISession::KeyStatus::Released: return "Released";
+            case ::OCDM::ISession::KeyStatus::OutputRestricted: return "OutputRestricted";
+            case ::OCDM::ISession::KeyStatus::OutputDownscaled: return "OutputDownscaled";
+            case ::OCDM::ISession::KeyStatus::StatusPending: return "StatusPending";
+            case ::OCDM::ISession::KeyStatus::InternalError: return "InternalError";
+            }
+            return "Unknown";
+        }
         string ToString() const {
             static TCHAR HexArray[] = "0123456789ABCDEF";
             string result(1, HexArray[(_kid[0] >> 4) & 0xF]);
@@ -277,6 +289,7 @@ public:
         _singleton = nullptr;
         TRACE_L1("Destructed the AccessorOCDM %p", this);
     }
+
     bool WaitForKey (const uint8_t keyLength, const uint8_t keyId[], const uint32_t waitTime, const OCDM::ISession::KeyStatus status) const {
         bool result = false;
         KeyId paramKey (keyId, keyLength);
@@ -285,44 +298,31 @@ public:
         do {
             _adminLock.Lock();
 
-            KeyMap::const_iterator session (_sessionKeys.begin());
-            const KeyList* container = nullptr;
-            KeyList::const_iterator index;
-
-            while ((container == nullptr) && (session != _sessionKeys.end())) {
-                index  = session->second.begin();
-
-                while ((index != session->second.end()) && (*index != paramKey)) { index++; }
-
-                if (index != session->second.end()) {
-                    container = &(session->second);
-                }
-                else {
-                    session++;
+            // FIXME: We shouldn't be looping through every available session really,
+            // the user of decryption should have a session handle, since sessions are supposed
+            // to be private by the spec.
+            for (const auto& sessionKeyPair : _sessionKeys) {
+                auto& sessionKeyList = sessionKeyPair.second;
+                auto matchingKey = std::find(sessionKeyList.begin(), sessionKeyList.end(), paramKey);
+                if (matchingKey != sessionKeyList.end()) {
+                    if (matchingKey->Status() != status) {
+                        TRACE_L1("Waiting for KeyId: %s, current status: %s", paramKey.ToString().c_str(), matchingKey->StatusString());
+                    } else {
+                        TRACE_L1("Found KeyId: %s with status %s", paramKey.ToString().c_str(), matchingKey->StatusString());
+                        result = true;
+                    }
                 }
             }
 
-            if ((container != nullptr) && (index != container->end())) {
-                result = (index->Status() == status);
-            }
-
-            if (result == false) {
+            if (!result) {
                 _interested++;
 
                 _adminLock.Unlock();
 
-                if ((container != nullptr) && (index != container->end())) {
-                    TRACE_L1("Waiting for KeyId: %s, current: %d", paramKey.ToString().c_str(), index->Status());
-                }
-                else {
-                    TRACE_L1("Waiting for KeyId: %s, current: <Not Found>", paramKey.ToString().c_str());
-                }
-
                 uint64_t now (Core::Time::Now().Ticks());
 
-                if (now < timeOut) {
+                if (now < timeOut)
                     _signal.Lock(static_cast<uint32_t>((timeOut - now) / Core::Time::TicksPerMillisecond));
-                }
 
                 Core::InterlockedDecrement(_interested);
             }
