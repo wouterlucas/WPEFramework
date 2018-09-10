@@ -220,6 +220,173 @@ namespace Core {
                 std::string _buffer;
             };
 
+            class EXTERNAL Validator {
+            private:
+                static constexpr uint32_t EnterFoundBit = 0x01;
+                static constexpr uint32_t SquareBracketFoundBit = 0x02;
+                static constexpr uint32_t DelimeterFoundBit = 0x03;
+                static constexpr uint32_t CommaFoundBit = 0x04;
+            private:
+                typedef enum {
+                    STATE_NONE,
+                    STATE_KEY,
+                    STATE_VALUE,
+                } State;
+            public:
+                Validator()
+                {
+                }
+                ~Validator()
+                {
+                }
+                bool Validate(const uint8_t stream[], const uint16_t maxLength, uint16_t& offset);
+            private:
+                inline bool IsDigit(const string str)
+                {
+                    return (str.find_first_not_of( "0123456789" ) == string::npos);
+                }
+                inline bool IsBool(const string str)
+                {
+                    return ((strcasecmp(str.c_str(), "true") == 0) || (strcasecmp(str.c_str (), "false") == 0));
+                }
+                inline bool IsNull(const string str)
+                {
+                    return (strcasecmp(str.c_str(), "null") == 0);
+                }
+
+                inline std::string Trim(std::string& str)
+                {
+                    size_t start = str.find_first_not_of(" \n\t\r");
+                    str.assign((start == std::string::npos) ? "" : str.substr(start));
+
+                    size_t end = str.find_last_not_of(" \n\t\r");
+                    return (end == std::string::npos) ? "" : str.substr(0, end + 1);
+                }
+                inline bool EnterScope(char ch)
+                {
+                    return (ch == '{') || (ch == '[');
+                }
+                inline bool ExitScope(char ch) const
+                {
+                    return (ch == '}') || (ch == ']');
+                }
+                inline bool WhiteSpace(char ch)
+                {
+                   return ((ch == ' ') || (ch == '\n') || ((ch == '\r') && (ch == '\t')));
+                }
+                inline bool IsEnterSet(const uint16_t scopeBit)
+                {
+                    return ((scopeBit >> EnterFoundBit) & 1U);
+                }
+                inline bool IsDelimeterSet(const uint16_t scopeBit)
+                {
+                    return ((scopeBit >> DelimeterFoundBit) & 1U);
+                }
+                inline bool IsCommaSet(const uint16_t scopeBit)
+                {
+                    return ((scopeBit >> CommaFoundBit) & 1U);
+                }
+                inline bool IsSquareBracketSet(const uint16_t scopeBit)
+                {
+                     return ((scopeBit >> SquareBracketFoundBit) & 1U);
+                }
+                inline void SetEnterBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit |= (1U << EnterFoundBit);
+                    scopeCount++;
+                }
+                inline void ResetEnterBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit &= ~(1U << EnterFoundBit);
+                    scopeCount--;
+                }
+
+                inline void SetDelimeterBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit |= (1U << DelimeterFoundBit);
+                    scopeCount++;
+                }
+                inline void ResetDelimeterBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit &= ~(1U << DelimeterFoundBit);
+                    scopeCount--;
+                }
+                inline void SetCommaBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit |= (1U << CommaFoundBit);
+                    scopeCount++;
+                }
+                inline void ResetCommaBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit &= ~(1U << CommaFoundBit);
+                    scopeCount--;
+                }
+                inline void SetSquareBracketBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit |= (1U << SquareBracketFoundBit);
+                    scopeCount++;
+                }
+                inline void ResetSquareBracketBit(uint16_t& scopeBit, uint16_t& scopeCount)
+                {
+                    scopeBit &= ~(1U << SquareBracketFoundBit);
+                    scopeCount--;
+                }
+                bool IsValidKey(std:: string& key)
+                {
+                    key = Trim(key);
+                    bool isValid = false;
+                    if (key.empty() != true) {
+                        isValid = ((key.at(0) == '\"') && (key.length() > 1) && (key.at(key.length() - 1) == '\"'));
+                    }
+                    return isValid;
+                }
+                bool IsValidData(std::string& value)
+                {
+                    value = Trim(value);
+                    bool isValid = false;
+                    if (value.empty() != true) {
+                        if ((IsDigit(value) == true) || (IsBool(value) == true) || (IsNull(value) == true)) {
+                            isValid = true;
+                        } else if ((value.at(0) == '\"') && (value.length() > 1) && (value.at(value.length() - 1) == '\"')) {
+                            //Find number of strings
+                            int count = 0;
+                            for (string::size_type i = 0; i < value.size(); ++i) {
+                                if (value[i] == '\"') {
+                                    count++;
+                                }
+                            }
+                            if (count == 2) {
+                                isValid = true;
+                            }
+                        }
+                    }
+                    return isValid;
+                }
+                bool IsCompleteData(std::string& value)
+                {
+                   value = Trim(value);
+                   bool isComplete = true;
+                   if (value.empty() != true) {
+                       if (value.at(0) == '\"') {
+                           if ((value.length() == 1) || (value.at(value.length() - 1) != '\"')) {
+                               isComplete = false;
+                           }
+                       }
+                   }
+                   return isComplete;
+                }
+            };
+
+            bool IsValidString(const string& text)
+            {
+                Validator validator;
+                uint16_t offset = 0;
+
+                bool isValid = validator.Validate((const uint8_t*)text.c_str(), text.size(), offset);
+
+                return isValid;
+            }
+
             template <typename INSTANCEOBJECT>
             static void ToString(const INSTANCEOBJECT& realObject, string& text)
             {
@@ -331,6 +498,30 @@ namespace Core {
             bool FromString(const string& text)
             {
                 return (Core::JSON::IElement::FromString(text, *this));
+            }
+
+            bool IsValidFile(Core::File& fileObject)
+            {
+               bool isValid = false;
+               if (fileObject.IsOpen()) {
+                   fileObject.Position(false, 0); // Reset to file start.
+
+                   uint16_t readBytes = static_cast<uint16_t>(~0);
+                   uint8_t buffer[1024];
+                   string fileData;
+
+                   do {
+                       readBytes = static_cast<uint16_t>(fileObject.Read(buffer, sizeof(buffer)));
+                       fileData.append((const char*)buffer, (size_t)readBytes);
+                   } while (readBytes != 0);
+
+                   if (fileData.empty() != true) {
+                       uint16_t offset = 0;
+                       Validator validator;
+                       isValid = validator.Validate((const uint8_t*)fileData.c_str(), fileData.size(), offset);
+                   }
+               }
+               return isValid;
             }
 
             template <typename INSTANCEOBJECT>

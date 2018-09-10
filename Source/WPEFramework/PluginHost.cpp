@@ -167,6 +167,9 @@ namespace PluginHost {
                 else {
                     Plugin::Config pluginConfig;
                     pluginConfig.FromFile(file);
+                    if (pluginConfig.IsValidFile(file) != true) {
+                        SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] is not a valid json file"), file.Name().c_str()));
+                    }
                     file.Close();
 
                     if ((pluginConfig.ClassName.Value().empty() == true) || (pluginConfig.Locator.Value().empty() == true)) {

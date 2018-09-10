@@ -199,7 +199,6 @@ namespace Core {
             uint16_t result = 0;
 
             _adminLock.Lock();
-
             IIterator* current = nullptr;
 
             if (_state == STATE_HANDLED) {
@@ -266,6 +265,7 @@ namespace Core {
                 }
                 case STATE_OPEN: {
                     IArrayIterator* elementList = dynamic_cast<IArrayIterator*>(current);
+
                     int character = (elementList == nullptr ? '{' : '[');
                     // See if we find an opening bracket in this part
                     while ((result < maxLength) && (stream[result] != character) && (stream[result] != ',') && (stream[result] != ']')&& (stream[result] != '}')) {
@@ -533,6 +533,134 @@ namespace Core {
             }
 
             _adminLock.Unlock();
+
+            return (result);
+        }
+        bool IElement::Validator::Validate(const uint8_t stream[], const uint16_t maxLength, uint16_t& offset)
+        {
+            ASSERT(maxLength > 0);
+
+            bool finished = false;
+            bool result = false;
+
+            uint16_t scopeBit = 0;
+            uint16_t scopeCount = 0;
+
+            State state = STATE_NONE;
+            uint16_t startOffset = offset;
+
+            for (;  ((offset < maxLength) && (finished == false)); offset++) {
+                if (EnterScope(stream[offset])) {
+                    if (IsEnterSet(scopeBit)) { //Parse sub string
+                        result = Validate(stream, maxLength, offset);
+                        if (result != true) {
+                            finished = true;
+                            break;
+                        }
+                        offset--; //Just point to the end position of previous parsing
+                    } else {
+                        SetEnterBit(scopeBit, scopeCount);
+                        if (stream[offset] == '[') {
+                            SetSquareBracketBit(scopeBit, scopeCount);
+                        }
+                    }
+                    if (IsCommaSet(scopeBit)) {
+                        ResetCommaBit(scopeBit, scopeCount);
+                    }
+                    if (IsDelimeterSet(scopeBit)) {
+                        ResetDelimeterBit(scopeBit, scopeCount);
+                    }
+                    continue;
+                } else if (ExitScope(stream[offset])) {
+                    ResetEnterBit(scopeBit, scopeCount);
+                    if (IsSquareBracketSet(scopeBit)) {
+                        ResetSquareBracketBit(scopeBit, scopeCount);
+                    }
+                    finished = true;
+                    continue;
+                } else if (WhiteSpace(stream[offset])) {
+                    // Skip whiteSpace.
+                    continue;
+                } else if (stream[offset] == ',') {
+                    SetCommaBit(scopeBit, scopeCount);
+                    state = STATE_NONE;
+                    continue;
+                } else {
+                    if (state == STATE_NONE) {
+                        if (IsSquareBracketSet(scopeBit)) {
+                            state = STATE_VALUE;
+                            if (IsCommaSet(scopeBit)) {
+                                ResetCommaBit(scopeBit, scopeCount);
+                            }
+                        } else {
+                            state = STATE_KEY;
+                        }
+                        result = false;
+                    }
+                }
+
+                switch (state) {
+                case STATE_KEY: {
+                    string key;
+                    while ((offset < maxLength) && (state == STATE_KEY)) {
+                        if (stream[offset] == ':') {
+                            if (IsValidKey(key) != true) {
+                                finished = true;
+                                break;
+                            }
+                            state = STATE_VALUE;
+                            SetDelimeterBit(scopeBit, scopeCount);
+                            if (IsCommaSet(scopeBit)) {
+                                ResetCommaBit(scopeBit, scopeCount);
+                            }
+                            key.clear();
+                        } else {
+                            key += stream[offset];
+                            offset++;
+                        }
+                    }
+                    break;
+                }
+                case STATE_VALUE: {
+                    string value;
+                    while ((offset < maxLength) && (state == STATE_VALUE)) {
+                        if (((stream[offset] == ',') && (IsCompleteData(value) == true)) || (ExitScope(stream[offset]))) {
+                            if (IsValidData(value) != true) {
+                                finished = true;
+                                break;
+                            }
+                            if (stream[offset] == ',') {
+                                SetCommaBit(scopeBit, scopeCount);
+                            } else {
+                                offset--;
+                            }
+                            if (IsDelimeterSet(scopeBit)) {
+                                ResetDelimeterBit(scopeBit, scopeCount);
+                            }
+                            state = STATE_NONE;
+                            result = true;
+                        } else {
+                            value += stream[offset];
+                            offset++;
+                        }
+                    }
+                    break;
+                }
+                case STATE_NONE:
+                default:
+                    ASSERT(FALSE);
+                    break;
+                }
+            }
+
+            if ((finished == true) && (scopeCount == 0)) {
+                result = true;
+            } else {
+                result = false;
+            }
+
+            if ((startOffset == 0) && (offset < maxLength))
+                result = false; //junk data after end of json string.
 
             return (result);
         }
