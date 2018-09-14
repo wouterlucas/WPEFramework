@@ -287,7 +287,7 @@ namespace Core {
                                 _state = STATE_LABEL;
                             } else {
                                 elementList->AddElement();
-    
+
                                 // Check if the new element is a container..
                                 if (elementList->Element()->Type() == PARSE_CONTAINER) {
                                     current = elementList->Element()->ElementIterator();
@@ -536,7 +536,8 @@ namespace Core {
 
             return (result);
         }
-        bool IElement::Validator::Validate(const uint8_t stream[], const uint16_t maxLength, uint16_t& offset)
+
+        bool IElement::Deserializer::Deserialize(Core::JSON::IElement* parentElement, const uint8_t stream[], const uint16_t maxLength, uint16_t& offset)
         {
             ASSERT(maxLength > 0);
 
@@ -547,15 +548,43 @@ namespace Core {
             uint16_t scopeCount = 0;
 
             State state = STATE_NONE;
-            uint16_t startOffset = offset;
+            Core::JSON::IElement* childElement = nullptr;
+            IIterator* elementIterator = nullptr;
 
+            if (parentElement != nullptr ) {
+                elementIterator = parentElement->ElementIterator();
+                childElement = parentElement;
+            }
+            uint16_t startOffset = offset;
             for (;  ((offset < maxLength) && (finished == false)); offset++) {
                 if (EnterScope(stream[offset])) {
-                    if (IsEnterSet(scopeBit)) { //Parse sub string
-                        result = Validate(stream, maxLength, offset);
+                    if (IsEnterSet(scopeBit)) {
+                        Core::JSON::IElement* element = nullptr;
+                        uint16_t currentOffset = offset;
+                        if (childElement != nullptr) {
+                            if (childElement->Type() == PARSE_CONTAINER) {
+                                if (/*IsSquareBracketSet(scopeBit) ||*/ (stream[offset] == '[')) {
+                                    element = childElement;
+                                } else {
+                                    IArrayIterator* elementList = dynamic_cast<IArrayIterator*>(childElement->ElementIterator());
+                                    if (elementList != nullptr) {
+                                        elementList->AddElement();
+                                        element = elementList->Element();
+                                    } else {
+                                       element = childElement;
+                                    }
+                                }
+                            }
+                        }
+                        result = Deserialize(element, stream, maxLength, offset);
                         if (result != true) {
                             finished = true;
                             break;
+                        }
+                        if (childElement != nullptr) {
+                            if (childElement->Type() == PARSE_DIRECT) {
+                                childElement->DirectParser()->Deserialize((const char*)stream + currentOffset, offset - currentOffset, currentOffset, true);
+                            }
                         }
                         offset--; //Just point to the end position of previous parsing
                     } else {
@@ -572,30 +601,41 @@ namespace Core {
                     }
                     continue;
                 } else if (ExitScope(stream[offset])) {
-                    ResetEnterBit(scopeBit, scopeCount);
-                    if (IsSquareBracketSet(scopeBit)) {
-                        ResetSquareBracketBit(scopeBit, scopeCount);
-                    }
                     finished = true;
+                    if (IsSquareBracketSet(scopeBit) && (stream[offset] == ']')) {
+                        ResetSquareBracketBit(scopeBit, scopeCount);
+                    } else if (stream[offset] == ']') {
+                        break;
+                    }
+                    ResetEnterBit(scopeBit, scopeCount);
                     continue;
                 } else if (WhiteSpace(stream[offset])) {
                     // Skip whiteSpace.
                     continue;
                 } else if (stream[offset] == ',') {
+                    if (result != true) { // Comma is occured before a valid data
+                        finished = true;
+                        break;
+                    }
                     SetCommaBit(scopeBit, scopeCount);
                     state = STATE_NONE;
+                    result = false;
                     continue;
                 } else {
                     if (state == STATE_NONE) {
                         if (IsSquareBracketSet(scopeBit)) {
                             state = STATE_VALUE;
+                            IArrayIterator* elementList = dynamic_cast<IArrayIterator*>(elementIterator);
+                            if (elementList != nullptr) {
+                                elementList->AddElement();
+                                childElement = elementList->Element();
+                            }
                             if (IsCommaSet(scopeBit)) {
                                 ResetCommaBit(scopeBit, scopeCount);
                             }
                         } else {
                             state = STATE_KEY;
                         }
-                        result = false;
                     }
                 }
 
@@ -607,6 +647,13 @@ namespace Core {
                             if (IsValidKey(key) != true) {
                                 finished = true;
                                 break;
+                            }
+                            if (elementIterator != nullptr) {
+                                if (static_cast<ILabelIterator*>(elementIterator)->Find(key.c_str()) == true) {
+                                    childElement = static_cast<ILabelIterator*>(elementIterator)->Element();
+                                } else {
+                                    childElement = nullptr;
+                                }
                             }
                             state = STATE_VALUE;
                             SetDelimeterBit(scopeBit, scopeCount);
@@ -631,14 +678,26 @@ namespace Core {
                             }
                             if (stream[offset] == ',') {
                                 SetCommaBit(scopeBit, scopeCount);
+                                result = false; // Reset to indicate that we have to parse some more data.
                             } else {
                                 offset--;
+                                result = true; // At the end of bracket.
                             }
                             if (IsDelimeterSet(scopeBit)) {
                                 ResetDelimeterBit(scopeBit, scopeCount);
                             }
                             state = STATE_NONE;
-                            result = true;
+                            if (childElement != nullptr) {
+                                if (childElement->Type() == PARSE_BUFFERED) {
+                                    childElement->BufferParser()->Deserialize(value);
+                                } else if (childElement->Type() == PARSE_DIRECT) {
+                                    uint16_t offset = 0;
+                                    childElement->DirectParser()->Deserialize(value.c_str(), value.length(), offset, true);
+                                } else {
+                                    result = false;
+                                }
+                            }
+                            value.clear();
                         } else {
                             value += stream[offset];
                             offset++;

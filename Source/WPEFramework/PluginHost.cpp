@@ -166,32 +166,33 @@ namespace PluginHost {
                 }
                 else {
                     Plugin::Config pluginConfig;
-                    pluginConfig.FromFile(file);
-                    if (pluginConfig.IsValidFile(file) != true) {
-                        SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] is not a valid json file"), file.Name().c_str()));
-                    }
+                    bool isValid = pluginConfig.FromFile(file);
                     file.Close();
 
-                    if ((pluginConfig.ClassName.Value().empty() == true) || (pluginConfig.Locator.Value().empty() == true)) {
-                        SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] does not contain classname or locator."), file.Name().c_str()));
-                    }
-                    else {
-                        if (pluginConfig.Callsign.Value().empty() == true) {
-                            pluginConfig.Callsign = Core::File::FileName(file.FileName());
-                        }
-
-                        Core::JSON::ArrayType<Plugin::Config>::Iterator index(config.Plugins.Elements());
-
-                        // Check if there is already a plugin config with this callsign
-                        while ((index.Next() == true) && (index.Current().Callsign.Value() != pluginConfig.Callsign.Value()))
-                            ;
-
-                        if (index.IsValid() == true) {
-                            SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] can not be reconfigured."), file.Name().c_str()));
+                    if (isValid == true) {
+                        if ((pluginConfig.ClassName.Value().empty() == true) || (pluginConfig.Locator.Value().empty() == true)) {
+                            SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] does not contain classname or locator."), file.Name().c_str()));
                         }
                         else {
-                            config.Plugins.Add(pluginConfig);
+                            if (pluginConfig.Callsign.Value().empty() == true) {
+                                pluginConfig.Callsign = Core::File::FileName(file.FileName());
+                            }
+
+                            Core::JSON::ArrayType<Plugin::Config>::Iterator index(config.Plugins.Elements());
+
+                            // Check if there is already a plugin config with this callsign
+                            while ((index.Next() == true) && (index.Current().Callsign.Value() != pluginConfig.Callsign.Value()))
+                                ;
+
+                            if (index.IsValid() == true) {
+                                SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] can not be reconfigured."), file.Name().c_str()));
+                            } else {
+                                config.Plugins.Add(pluginConfig);
+                            }
                         }
+                    } else {
+                        pluginConfig.Configuration = "null";
+                        SYSLOG(PluginHost::Startup, (_T("Plugin config file [%s] is not a valid json file, will not activate plugin properly"), file.Name().c_str()));
                     }
                 }
             }
