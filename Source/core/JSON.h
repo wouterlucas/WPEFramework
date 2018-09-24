@@ -61,7 +61,7 @@ namespace Core {
                     STATE_VALUE,
                     STATE_CLOSE,
                     STATE_PREFIX,
-                    STATE_REPORT
+                    STATE_REPORT,
 
                 } State;
 
@@ -145,7 +145,7 @@ namespace Core {
                 static constexpr uint32_t SquareBracketFoundBit = 0x02;
                 static constexpr uint32_t DelimeterFoundBit = 0x03;
                 static constexpr uint32_t CommaFoundBit = 0x04;
-                static constexpr char* WhiteSpaces = " \n\r\t";
+                static constexpr char* WhiteSpaces = (char*) " \n\r\t";
             private:
                 typedef enum {
                     STATE_NONE,
@@ -159,13 +159,30 @@ namespace Core {
                     STATE_PREFIX,
                     STATE_HANDLED,
                     STATE_KEY,
+                    STATE_CONTAINER,
+                    STATE_CONTAINER_VALUE,
                 } State;
-
                 typedef enum {
                     QUOTED_OFF,
                     QUOTED_ON,
                     QUOTED_ESCAPED
                 } Quoted;
+                typedef enum {
+                    RESULT_NONE,
+                    RESULT_SUCCESS,
+                    RESULT_FAILURE,
+                    RESULT_INPROGRESS
+                } Result;
+                struct ContainerLevelInfo {
+                    string key;
+                    string value;
+                    uint16_t scopeBit;
+                    uint16_t scopeCount;
+                    Result result;
+                    State state;
+                    Core::JSON::IElement* childElement;
+                    IIterator* elementIterator;
+                };
 
             private:
                 Deserializer(const Deserializer&);
@@ -173,7 +190,8 @@ namespace Core {
 
             public:
                 Deserializer()
-                    : _handling(nullptr)
+                    : _element(nullptr)
+                    , _handling(nullptr)
                     , _handleStack()
                     , _state(STATE_HANDLED)
                     , _offset(0)
@@ -182,6 +200,7 @@ namespace Core {
                     , _levelSkip(0)
                     , _adminLock()
                     , _buffer()
+                    , _containerLevel(0)
                 {
                 }
                 virtual ~Deserializer()
@@ -210,10 +229,10 @@ namespace Core {
                 }
 
                 uint16_t Deserialize(const uint8_t stream[], const uint16_t maxLength);
-                bool Deserialize(Core::JSON::IElement* parentElement, const uint8_t stream[], const uint16_t maxLength, uint16_t& offset);
+                bool Deserialize(const uint8_t stream[], const uint16_t maxLength, uint16_t& offset);
 
             private:
-                virtual IElement* Element(const string& identifer) = 0;
+                virtual IElement* Element(const string& identifer = "") = 0;
 
                 inline bool IsDigit(const string str)
                 {
@@ -223,11 +242,6 @@ namespace Core {
                 {
                     return ((strcasecmp(str.c_str(), "true") == 0) || (strcasecmp(str.c_str (), "false") == 0));
                 }
-                inline bool IsNull(const string str)
-                {
-                    return (strcasecmp(str.c_str(), "null") == 0);
-                }
-
                 inline std::string Trim(std::string& str, std::string substr)
                 {
                     size_t start = str.find_first_not_of(substr);
@@ -246,7 +260,7 @@ namespace Core {
                 }
                 inline bool WhiteSpace(char ch)
                 {
-                   return ((ch == ' ') || (ch == '\n') || ((ch == '\r') && (ch == '\t')));
+                   return ((ch == ' ') || (ch == '\n') || ((ch == '\r') || (ch == '\t')));
                 }
                 inline bool IsEnterSet(const uint16_t scopeBit)
                 {
@@ -322,7 +336,7 @@ namespace Core {
                     value = Trim(value, WhiteSpaces);
                     bool isValid = false;
                     if (value.empty() != true) {
-                        if ((IsDigit(value) == true) || (IsBool(value) == true) || (IsNull(value) == true)) {
+                        if ((IsDigit(value) == true) || (IsBool(value) == true) || (ContainsNull(value) == true)) {
                             isValid = true;
                         } else if ((value.at(0) == '\"') && (value.length() > 1) && (value.at(value.length() - 1) == '\"')) {
                             //Find number of strings
@@ -353,6 +367,8 @@ namespace Core {
                    }
                    return isComplete;
                 }
+            protected:
+                IElement* _element;
 
             private:
                 IElement* _handling;
@@ -365,6 +381,9 @@ namespace Core {
                 uint16_t _levelSkip;
                 Core::CriticalSection _adminLock;
                 std::string _buffer;
+                Result _result;
+                uint16_t _containerLevel;
+                std::map<uint16_t, ContainerLevelInfo*> _containerLevelMap;
             };
 
             template <typename INSTANCEOBJECT>
@@ -408,17 +427,13 @@ namespace Core {
                     text += string(reinterpret_cast<char*>(&buffer[0]), loaded);
                 }
             }
-#if 0
             template <typename INSTANCEOBJECT>
             static bool FromString(const string& text, INSTANCEOBJECT& realObject)
             {
-                bool ready = false;
                 class DeserializerImpl : public Deserializer {
                 public:
-                    DeserializerImpl(bool& ready)
+                    DeserializerImpl()
                         : INSTANCEOBJECT::Deserializer()
-                        , _element(nullptr)
-                        , _ready(ready)
                     {
                     }
                     ~DeserializerImpl()
@@ -431,81 +446,41 @@ namespace Core {
                         ASSERT(_element == nullptr);
                         _element = element;
                     }
-                    virtual Core::JSON::IElement* Element(const string& identifier)
+                    virtual Core::JSON::IElement* Element(const string& /* identifier */)
                     {
-                        DEBUG_VARIABLE(identifier);
-                        ASSERT(identifier.empty() == true);
-                        return (_element);
+                        return _element;
                     }
-                    virtual void Deserialized(Core::JSON::IElement& element)
+                    virtual void Deserialized(Core::JSON::IElement& /* element */)
                     {
-                        DEBUG_VARIABLE(element);
-                        ASSERT(&element == _element);
-                        _element = nullptr;
-                        _ready = true;
                     }
+                } deserializer;
 
-                private:
-                    Core::JSON::IElement* _element;
-                    bool& _ready;
-                } deserializer(ready);
-
-                uint16_t fillCount = 0;
                 realObject.Clear();
-
                 deserializer.SetElement(&realObject);
 
-                // Serialize object
-                while ((ready == false) && (fillCount < text.size())) {
-                    uint8_t buffer[1024];
-                    uint16_t size = ((text.size() - fillCount) < sizeof(buffer) ? (static_cast<uint16_t>(text.size()) - fillCount) : sizeof(buffer));
-
-                    // Prepare the deserialize buffer
-                    memcpy(buffer, &(text.data()[fillCount]), size);
-
-                    fillCount += size;
-
-                    deserializer.Deserialize(buffer, size);
-                }
-
-                return (ready == true);
-            }
-#else
-            template <typename INSTANCEOBJECT>
-            static bool FromString(const string& text, INSTANCEOBJECT& realObject)
-            {
-                bool isValid = false;
-
-                    class DeserializerImpl : public Deserializer {
-                    public:
-                        DeserializerImpl()
-                            : INSTANCEOBJECT::Deserializer()
-                        {
-                        }
-                        ~DeserializerImpl()
-                        {
-                        }
-
-                    public:
-                        virtual Core::JSON::IElement* Element(const string& identifier)
-                        {
-                            return nullptr;
-                        }
-                        virtual void Deserialized(Core::JSON::IElement& element)
-                        {
-                        }
-                    } deserializer;
-
-                    realObject.Clear();
-
-                    if (text.empty() != true) {
+                bool isValid = true;
+                if (text.empty() != true) {
+                    uint16_t fillCount = 0;
+                    while ((isValid == true) && (fillCount < text.size())) {
                         uint16_t offset = 0;
-                        isValid = deserializer.Deserialize(&realObject, (const uint8_t*)text.c_str(), text.size(), offset);
+
+                        uint8_t buffer[250];
+                        uint16_t size = ((text.size() - fillCount) < sizeof(buffer) ? (static_cast<uint16_t>(text.size()) - fillCount) : sizeof(buffer));
+
+                        // Prepare the deserialize buffer
+                        memset(buffer, 0, sizeof(buffer));
+                        memcpy(buffer, &(text.data()[fillCount]), size);
+
+                        fillCount += size;
+
+                        isValid = deserializer.Deserialize((const uint8_t*)buffer, size,  offset);
                     }
+                } else {
+                    isValid = false;
+                }
 
                 return (isValid == true);
             }
- #endif
             void ToString(string& text) const
             {
                 Core::JSON::IElement::ToString(*this, text);
@@ -562,7 +537,11 @@ namespace Core {
             template <typename INSTANCEOBJECT>
             static bool FromFile(Core::File& fileObject, INSTANCEOBJECT& realObject)
             {
-                bool isValid = false;
+                bool isValid = true;
+                uint16_t usedBytes = 0;
+                uint16_t unusedBytes = 0;
+                uint16_t readBytes = static_cast<uint16_t>(~0);
+
                 if (fileObject.IsOpen() == true) {
 
                     class DeserializerImpl : public Deserializer {
@@ -576,32 +555,44 @@ namespace Core {
                         }
 
                     public:
-                        virtual Core::JSON::IElement* Element(const string& identifier)
+                        inline void SetElement(Core::JSON::IElement* element)
                         {
-                            return nullptr;
+                            ASSERT(_element == nullptr);
+                            _element = element;
                         }
-                        virtual void Deserialized(Core::JSON::IElement& element)
+                        virtual Core::JSON::IElement* Element(const string& /* identifier */)
+                        {
+                            return _element;
+                        }
+                        virtual void Deserialized(Core::JSON::IElement& /* element */)
                         {
                         }
                     } deserializer;
 
                     realObject.Clear();
+                    deserializer.SetElement(&realObject);
+
                     fileObject.Position(false, 0); // Reset to file start.
 
-                    uint16_t readBytes = static_cast<uint16_t>(~0);
-                    uint8_t buffer[1024];
-                    string fileData;
-
-                    do {
+                    while ((isValid == true) && (readBytes != 0)) {
+                        uint8_t buffer[250];
+                        memset(buffer, 0, sizeof(buffer));
                         readBytes = static_cast<uint16_t>(fileObject.Read(buffer, sizeof(buffer)));
-                        fileData.append((const char*)buffer, (size_t)readBytes);
-                    } while (readBytes != 0);
+                        if (readBytes != 0) {
+                            // Deserialize object
+                            isValid = deserializer.Deserialize(buffer, readBytes, usedBytes);
 
-                    if (fileData.empty() != true) {
-                        uint16_t offset = 0;
-                        isValid = deserializer.Deserialize(&realObject, (const uint8_t*)fileData.c_str(), fileData.size(), offset);
+                            unusedBytes = (readBytes - usedBytes);
+                            usedBytes = 0;
+                        }
                     }
+                    if (unusedBytes != 0) {
+                        fileObject.Position(true, -unusedBytes);
+                    }
+                } else {
+                    isValid = false;
                 }
+
                 return (isValid == true);
             }
             bool ToFile(Core::File& fileObject) const
@@ -1258,7 +1249,7 @@ namespace Core {
                 if (direct == true) {
                     _value.clear();
                     _value.assign(stream, maxLength);
-                    _scopeCount |= SetBit;
+                    _scopeCount |= (ContainsNull(_value) ? None : SetBit);
                     result = maxLength;
                 } else {
                     bool finished = false;
@@ -1746,14 +1737,12 @@ namespace Core {
                 virtual IElement* Element()
                 {
                     ASSERT(_state == AT_ELEMENT);
-
                     return (&(*_iterator));
                 }
                 virtual void AddElement()
                 {
                     // This can only be called if there is a container..
                     ASSERT(_container != nullptr);
-
                     if ((_container->size() == 0) || (_container->back().IsSet() == true)) {
                         _container->push_back(ARRAYELEMENT());
                         _state = AT_ELEMENT;
@@ -1986,10 +1975,8 @@ namespace Core {
                 DeserializerImpl& operator=(const DeserializerImpl&) = delete;
 
             public:
-                DeserializerImpl(ThisClass& parent, bool& ready)
+                DeserializerImpl(bool& ready)
                     : INSTANCEOBJECT::Deserializer()
-                    , _element(nullptr)
-                    , _parent(parent)
                     , _ready(ready)
                 {
                 }
@@ -2002,29 +1989,27 @@ namespace Core {
                 {
                     ASSERT(((element == nullptr) ^ (_element == nullptr)) || (element == _element));
 
-                    _element = element;
+                    INSTANCEOBJECT::Deserializer::_element = element;
                 }
 
                 virtual Core::JSON::IElement *Element(const string &identifier VARIABLE_IS_NOT_USED)
                 {
-                    return (_element);
+                    return (INSTANCEOBJECT::Deserializer::_element);
                 }
                 virtual void Deserialized(INSTANCEOBJECT& element)
                 {
                     ASSERT(&element == _element);
-                    _element = nullptr;
+                    INSTANCEOBJECT::Deserializer::_element = nullptr;
                     _ready = true;
                 }
                 virtual void Deserialized(Core::JSON::IElement& element)
                 {
                     ASSERT(&element == _element);
-                    _element = nullptr;
+                    INSTANCEOBJECT::Deserializer::_element = nullptr;
                     _ready = true;
                 }
 
             private:
-                Core::JSON::IElement* _element;
-                ThisClass& _parent;
                 bool& _ready;
             };
 
@@ -2036,41 +2021,39 @@ namespace Core {
             Tester()
                 : _ready(false)
                 , _serializer(_ready)
-                , _deserializer(*this, _ready)
+                , _deserializer(_ready)
             {
             }
             ~Tester()
             {
             }
-
             bool FromString(const string& value, Core::ProxyType<INSTANCEOBJECT>& receptor)
             {
-                uint16_t fillCount = 0;
                 receptor->Clear();
 
-                _ready = false;
                 _deserializer.SetElement(&(*(receptor)));
                 // Serialize object
-                while ((_ready == false) && (fillCount < value.size())) {
-                    uint16_t size = ((value.size() - fillCount) < SIZE ? (value.size() - fillCount) : SIZE);
+                bool isValid = true;
+                if (value.empty() != true) {
 
-                    // Prepare the deserialize buffer
-                    memcpy(_buffer, &(value.data()[fillCount]), size);
+                    uint16_t fillCount = 0;
+                    while ((isValid == true) && (fillCount < value.size())) {
+                        uint16_t offset = 0;
+                        uint16_t size = ((value.size() - fillCount) < SIZE ? (value.size() - fillCount) : SIZE);
 
-                    fillCount += size;
+                        // Prepare the deserialize buffer
+                        memcpy(_buffer, &(value.data()[fillCount]), size);
 
-    #ifdef __DEBUG__
-                    uint16_t handled =
-    #endif // __DEBUG__
+                        fillCount += size;
+                        isValid = _deserializer.Deserialize((const uint8_t*)_buffer, size, offset);
 
-                        _deserializer.Deserialize(_buffer, size);
-
-                    ASSERT(handled <= size);
+                        ASSERT(offset <= size);
+                    }
+                } else {
+                    isValid = false;
                 }
-
-                return (_ready == true);
+                return (isValid == true);
             }
-
             void ToString(const Core::ProxyType<INSTANCEOBJECT>& receptor, string& value)
             {
                 uint16_t fillCount = 0;
