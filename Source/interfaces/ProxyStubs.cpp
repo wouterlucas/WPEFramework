@@ -379,7 +379,8 @@ namespace ProxyStubs {
         [](Core::ProxyType<Core::IPCChannel>&, Core::ProxyType<RPC::InvokeMessage>& message) {
             // Disconnect()
             RPC::Data::Frame::Writer response(message->Response().Writer());
-            response.Boolean(message->Parameters().Implementation<IBluetooth>()->Disconnect());
+            RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
+            response.Boolean(message->Parameters().Implementation<IBluetooth>()->Disconnect(parameters.Text()));
         },
         [](Core::ProxyType<Core::IPCChannel>&, Core::ProxyType<RPC::InvokeMessage>& message) {
             // IsScanning()
@@ -387,9 +388,9 @@ namespace ProxyStubs {
             response.Boolean(message->Parameters().Implementation<IBluetooth>()->IsScanning());
         },
         [](Core::ProxyType<Core::IPCChannel>&, Core::ProxyType<RPC::InvokeMessage>& message) {
-            // Connected()
+            // ConnectedDevices()
             RPC::Data::Frame::Writer response(message->Response().Writer());
-            response.Text(message->Parameters().Implementation<IBluetooth>()->Connected());
+            response.Text(message->Parameters().Implementation<IBluetooth>()->ConnectedDevices());
         },
         nullptr
     };
@@ -1997,9 +1998,11 @@ namespace ProxyStubs {
             return reader.Boolean();
         }
 
-        virtual bool Disconnect()
+        virtual bool Disconnect(string deviceId)
         {
             IPCMessage newMessage(BaseClass::Message(7));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Text(deviceId);
             Invoke(newMessage);
 
             RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
@@ -2015,7 +2018,7 @@ namespace ProxyStubs {
             return reader.Boolean();
         }
 
-        virtual string Connected()
+        virtual string ConnectedDevices()
         {
             IPCMessage newMessage(BaseClass::Message(9));
             Invoke(newMessage);
