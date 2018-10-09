@@ -1162,6 +1162,12 @@ namespace ProxyStubs {
              RPC::Data::Frame::Writer response(message->Response().Writer());
              response.Number<uint32_t>(message->Parameters().Implementation<IStream>()->Load(configuration));
          },
+         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+             //
+             // virtual void Terminate(void) = 0;
+             //
+             message->Parameters().Implementation<IStream>()->Terminate();
+         },
          nullptr
     };
 
@@ -1325,6 +1331,28 @@ namespace ProxyStubs {
     };
 
     ProxyStub::MethodHandler PlayerStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            // virtual uint32_t Configure(PluginHost::IShell* framework) = 0;
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+            RPC::Data::Frame::Writer writer(message->Response().Writer());
+
+            PluginHost::IShell* implementation = reader.Number<PluginHost::IShell*>();
+            PluginHost::IShell* proxy = RPC::Administrator::Instance().CreateProxy<PluginHost::IShell>(channel, implementation, true, false);
+
+            ASSERT((proxy != nullptr) && "Failed to create proxy");
+
+            if (proxy == nullptr) {
+                TRACE_L1(_T("Could not create a stub for IAVNClient: %p"), implementation);
+                writer.Number<uint32_t>(Core::ERROR_RPC_CALL_FAILED);
+            }
+            else {
+                writer.Number(parameters.Implementation<IPlayer>()->Configure(proxy));
+                if (proxy->Release() != Core::ERROR_NONE) {
+                    TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
+                }
+            }
+        },
          [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual IStream* CreateStream(IStream::StreamType streamType) = 0;
@@ -2604,7 +2632,11 @@ namespace ProxyStubs {
 
             return (newMessage->Response().Reader().Number<uint32_t>());
         }
-
+        virtual void Terminate()
+        {
+            IPCMessage newMessage(BaseClass::Message(6));
+            Invoke(newMessage);
+        }
    };
 
    class StreamCallbackProxy : public ProxyStub::UnknownProxyType<IStream::ICallback> {
@@ -2784,9 +2816,17 @@ namespace ProxyStubs {
         {
         }
    public:
-        virtual IStream* CreateStream(IStream::streamtype streamType)
+        virtual uint32_t Configure(PluginHost::IShell* service)
         {
             IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number<PluginHost::IShell*>(service);
+            Invoke(newMessage);
+            return (newMessage->Response().Reader().Number<uint32_t>());
+        }
+        virtual IStream* CreateStream(IStream::streamtype streamType)
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
             writer.Number<IStream::streamtype>(streamType);
             Invoke(newMessage);
@@ -2960,7 +3000,7 @@ namespace ProxyStubs {
             writer.Text(settings);
             Invoke(newMessage);
         }
- 
+
     };
 
     // -------------------------------------------------------------------------------------------

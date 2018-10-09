@@ -3,7 +3,7 @@
 
 #include "Module.h"
 
-#define LINEARBROADCASTPLAYER_PROCESS_NODE_ID "/tmp/LinearBroadcastPlayerProcess0"
+#define LINEARBROADCASTPLAYER_PROCESS_NODE_ID "/tmp/player"
 
 namespace WPEFramework {
 namespace Exchange {
@@ -82,12 +82,14 @@ namespace Exchange {
         virtual void Callback(IStream::ICallback* callback) = 0;
         virtual state State() const = 0;
         virtual uint32_t Load(std::string configuration) = 0;
+        virtual void Terminate() = 0;
     };
 
     struct IPlayer : virtual public Core::IUnknown {
         enum { ID = 0x00000015 };
 
         virtual ~IPlayer() {}
+        virtual uint32_t Configure(PluginHost::IShell*) = 0;
         virtual IStream* CreateStream(IStream::streamtype streamType) = 0;
         virtual uint32_t Configure(PluginHost::IShell* service) = 0;
     };
