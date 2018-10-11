@@ -3,7 +3,7 @@
 
 #include "Module.h"
 
-#define LINEARBROADCASTPLAYER_PROCESS_NODE_ID "/tmp/player"
+#define WPEPLAYER_PROCESS_NODE_ID "/tmp/player"
 
 namespace WPEFramework {
 namespace Exchange {
@@ -36,9 +36,16 @@ namespace Exchange {
             struct IGeometry : virtual public Core::IUnknown {
                 enum { ID = 0x00000019 };
 
+                struct Rectangle {
+                    uint32_t X;
+                    uint32_t Y;
+                    uint32_t Width;
+                    uint32_t Height;
+                };
+
                 virtual ~IGeometry() {}
 
-                virtual uint32_t X() const = 0;;
+                virtual uint32_t X() const = 0;
                 virtual uint32_t Y() const = 0;
                 virtual uint32_t Z() const = 0;
                 virtual uint32_t Width() const = 0;
@@ -55,8 +62,8 @@ namespace Exchange {
 
             virtual ~IControl() {};
 
-            virtual void Speed(const uint32_t request) = 0;
-            virtual uint32_t Speed() const = 0;
+            virtual void Speed(const int32_t request) = 0;
+            virtual int32_t Speed() const = 0;
             virtual void Position(const uint64_t absoluteTime) = 0;
             virtual uint64_t Position() const = 0;
             virtual void TimeRange(uint64_t& begin, uint64_t& end) const = 0;
@@ -93,6 +100,70 @@ namespace Exchange {
         virtual IStream* CreateStream(IStream::streamtype streamType) = 0;
         virtual uint32_t Configure(PluginHost::IShell* service) = 0;
     };
+
+    struct ICallback {
+        virtual ~ICallback() {}
+
+        virtual void TimeUpdate(uint64_t position) = 0;
+        virtual void DRM(uint32_t state) = 0;
+        virtual void StateChange(Exchange::IStream::state newState) = 0;
+    };
+
+    class IPlayerPlatform {
+    public:
+        virtual ~IPlayerPlatform() {}
+
+    public:
+        virtual IStream::streamtype Type() const = 0;
+        virtual IStream::drmtype DRM() const = 0;
+        virtual IStream::state State() const = 0;
+        virtual uint32_t Load(const string& configuration) = 0;
+        virtual void Speed(const int32_t request) = 0;
+        virtual int32_t Speed() const = 0;
+        virtual void Position(const uint64_t absoluteTime) = 0;
+        virtual uint64_t Position() const = 0;
+        virtual void TimeRange(uint64_t& begin, uint64_t& end) const = 0;
+        virtual const IStream::IControl::IGeometry::Rectangle& Window() const = 0;
+        virtual void Window (const IStream::IControl::IGeometry::Rectangle& rectangle) = 0;
+        virtual uint32_t Order() const = 0;
+        virtual void Order(const uint32_t order) = 0;
+        virtual void AttachDecoder(const uint8_t index) = 0;
+        virtual void DetachDecoder(const uint8_t index) = 0;
+        virtual void Terminate() = 0;
+    };
+
+    struct ISystemPlayer {
+        virtual IPlayerPlatform* CreateInstance(const IStream::streamtype type, const uint8_t index, ICallback* callbacks) = 0;
+    };
+
+    template <typename IMPLEMENTATION>
+    class SystemPlayerType : public ISystemPlayer {
+    private:
+        SystemPlayerType(const SystemPlayerType<IMPLEMENTATION>&) = delete;
+        SystemPlayerType<IMPLEMENTATION>& operator=(const SystemPlayerType<IMPLEMENTATION>&) = delete;
+
+    public:
+        SystemPlayerType () {
+        }
+        virtual ~SystemPlayerType () {
+        }
+
+    public:
+        virtual IPlayerPlatform* CreateInstance(const IStream::streamtype type, const uint8_t index, ICallback* callbacks) {
+            return (new IMPLEMENTATION(type, index, callbacks));
+        }
+    };
+
+} } // namespace WPEFramework::Exchange
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+WPEFramework::Exchange::ISystemPlayer*  GetSystemPlayer();
+
+#ifdef __cplusplus
 }
-}
+#endif
+
 #endif //_ITVCONTROL_H
