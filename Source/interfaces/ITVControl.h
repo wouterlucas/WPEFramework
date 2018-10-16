@@ -96,7 +96,6 @@ namespace Exchange {
         enum { ID = 0x00000015 };
 
         virtual ~IPlayer() {}
-        virtual uint32_t Configure(PluginHost::IShell*) = 0;
         virtual IStream* CreateStream(IStream::streamtype streamType) = 0;
         virtual uint32_t Configure(PluginHost::IShell* service) = 0;
     };
