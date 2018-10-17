@@ -67,9 +67,8 @@ namespace Core {
                         if (result < maxLength) {
                             if (_prefix[0] != '\0') {
                                 stream[result++] = '\"';
-                                stream[result++] = ':';
                             }
-                            _state = STATE_OPEN;
+                            _state = STATE_PREFIX_DELIMITER;
                             _offset = 0;
                         }
                         break;
@@ -120,6 +119,11 @@ namespace Core {
                             _state = STATE_DELIMITER;
                             _offset = 0;
                         }
+                        break;
+                    }
+                    case STATE_PREFIX_DELIMITER: {
+                        stream[result++] = ':';
+                        _state = STATE_OPEN;
                         break;
                     }
                     case STATE_DELIMITER: {
@@ -572,6 +576,7 @@ namespace Core {
             _result = containerLevelInfo->result;
 
             uint16_t startOffset = offset;
+
             for (;  ((offset < maxLength) && (finished == false)); offset++) {
 
                 if (EnterScope(stream[offset]) || (containerLevelInfo->state == STATE_CONTAINER) ) {
@@ -613,7 +618,7 @@ namespace Core {
                                 containerLevelInfo->value.append((const char*)stream + currentOffset, size);
                                 if (_result == RESULT_SUCCESS) {
 
-                                    containerLevelInfo->childElement->DirectParser()->Deserialize(containerLevelInfo->value.c_str(), containerLevelInfo->value.length(), currentOffset, true);
+                                    *((Core::JSON::String*)containerLevelInfo->childElement) = containerLevelInfo->value;
                                     containerLevelInfo->value.clear();
                                 }
                             }
@@ -761,8 +766,7 @@ namespace Core {
                                 if (containerLevelInfo->childElement->Type() == PARSE_BUFFERED) {
                                     containerLevelInfo->childElement->BufferParser()->Deserialize(containerLevelInfo->value);
                                 } else if (containerLevelInfo->childElement->Type() == PARSE_DIRECT) {
-                                    uint16_t offset = 0;
-                                    containerLevelInfo->childElement->DirectParser()->Deserialize(containerLevelInfo->value.c_str(), containerLevelInfo->value.length(), offset, true);
+                                    *((Core::JSON::String*)containerLevelInfo->childElement) = containerLevelInfo->value;
                                 } else {
                                     containerLevelInfo->result = RESULT_FAILURE;
                                 }
@@ -781,6 +785,9 @@ namespace Core {
                     break; //Just skip
                 default:
                     ASSERT(FALSE);
+                    break;
+                }
+                if (offset >= maxLength) {
                     break;
                 }
             }
