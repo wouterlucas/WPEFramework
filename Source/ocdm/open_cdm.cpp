@@ -28,6 +28,11 @@ using namespace WPEFramework;
 static Core::CriticalSection _systemLock;
 static const char EmptyString[] = { '\0' };
 
+// TODO: figure out how to force linking of libocdm.so
+void ForceLinkingOfOpenCDM()
+{
+}
+
 static KeyStatus CDMState(const OCDM::ISession::KeyStatus state) {
 
     switch(state) {
