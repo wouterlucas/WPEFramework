@@ -183,6 +183,17 @@ namespace WPEFramework {
         nullptr
     };
 
+    ProxyStub::MethodHandler AccesorOCDMExtStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // virtual time_t GetDrmSystemTime() const = 0;
+            //
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+
+            response.Number(message->Parameters().Implementation<OCDM::IAccessorOCDMExt>()->GetDrmSystemTime());
+        },
+    };
+
     //
     // OCDM::IAccessorOCDM::INotification interface stub definitions (interface/ICDM.h)
     //
@@ -386,6 +397,7 @@ namespace WPEFramework {
     };
 
     typedef ProxyStub::StubType<OCDM::IAccessorOCDM, AccesorOCDMStubMethods, ProxyStub::UnknownStub> AccessorOCDMStub;
+    typedef ProxyStub::StubType<OCDM::IAccessorOCDMExt, AccesorOCDMExtStubMethods, ProxyStub::UnknownStub> AccessorOCDMExtStub;
     typedef ProxyStub::StubType<OCDM::IAccessorOCDM::INotification, AccesorOCDMNotificationStubMethods, ProxyStub::UnknownStub> AccessorOCDMNotificationStub;
     typedef ProxyStub::StubType<OCDM::ISession::ICallback, CallbackStubMethods, ProxyStub::UnknownStub> CallbackStub;
     typedef ProxyStub::StubType<OCDM::ISession, SessionStubMethods, ProxyStub::UnknownStub> SessionStub;
@@ -521,6 +533,29 @@ namespace WPEFramework {
             writer.Number(callback);
 
             Invoke(newMessage);
+        }
+    };
+
+    class AccessorOCDMExtProxy : public ProxyStub::UnknownProxyType<OCDM::IAccessorOCDMExt> {
+    public:
+        AccessorOCDMExtProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation,
+            const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+        virtual ~AccessorOCDMExtProxy()
+        {
+        }
+
+    public:
+        virtual time_t GetDrmSystemTime() const override {
+            IPCMessage newMessage(BaseClass::Message(0));
+
+            Invoke(newMessage);
+
+            RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
+
+            return (reader.Number<time_t>());
         }
     };
  
@@ -727,13 +762,15 @@ namespace WPEFramework {
     // since the interface is a dedicated interface and needs loading, if required by a 
     // wrapper aroundthe interface. 
     // -------------------------------------------------------------------------------------------
-    static class Instantiation {
+namespace {
+    class Instantiation {
     public:
         Instantiation()
         {
             RPC::Administrator::Instance().Announce<OCDM::ISession::ICallback, CallbackProxy, CallbackStub>();
             RPC::Administrator::Instance().Announce<OCDM::ISession, SessionProxy, SessionStub>();
             RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDM, AccessorOCDMProxy, AccessorOCDMStub>();
+            RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDMExt, AccessorOCDMExtProxy, AccessorOCDMExtStub>();
             RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDM::INotification, AccessorOCDMNotificationProxy, AccessorOCDMNotificationStub>();
         }
 
@@ -742,6 +779,7 @@ namespace WPEFramework {
         }
 
     } OCDMProxyStubRegistration;
+}
 
 
 } // namespace WPEFramework
