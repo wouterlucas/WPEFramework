@@ -253,6 +253,16 @@ public:
         uint8_t  *f_pbClearContentOpaque) = 0;
 };
 
+// IMediaKeySession defines the MediaKeySession interface.
+class IMediaKeySessionExt
+{
+public:
+    IMediaKeySessionExt(void) {}
+    virtual ~IMediaKeySessionExt(void) {}
+
+    virtual uint32_t GetSessionIdExt(void) const = 0;
+};
+
 // IMediaKeys defines the MediaKeys interface.
 class IMediaKeys
 {

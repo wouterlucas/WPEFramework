@@ -79,6 +79,13 @@ namespace OCDM {
         virtual void Revoke (OCDM::ISession::ICallback* callback) = 0;
     };
 
+    struct ISessionExt : virtual public WPEFramework::Core::IUnknown
+    {
+        enum { ID = 0x00000072 };
+
+        virtual uint32_t SessionIdExt() const = 0;
+    };
+
     struct IAccessorOCDM : virtual public WPEFramework::Core::IUnknown {
 
         enum { ID = 0x00000010 };
