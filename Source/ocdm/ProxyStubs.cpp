@@ -192,6 +192,42 @@ namespace WPEFramework {
 
             response.Number(message->Parameters().Implementation<OCDM::IAccessorOCDMExt>()->GetDrmSystemTime());
         },
+        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // virtual OCDM_RESULT CreateSessionExt(
+            //    uint32_t sessionId,
+            //    const char contentId[],
+            //    uint32_t contentIdLength,
+            //    LicenseTypeExt licenseType,
+            //    const uint8_t drmHeader[],
+            //    uint32_t drmHeaderLength,
+            //    ISessionExt*& session) = 0;
+            //
+
+            RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+
+            uint32_t sessionId = parameters.Number<uint32_t>();
+
+            const uint8_t* contentIdPtr = nullptr;
+            uint32_t contentIdLength = parameters.LockBuffer<uint32_t>(contentIdPtr);
+
+            OCDM::IAccessorOCDMExt::LicenseTypeExt licenseType = parameters.Number<OCDM::IAccessorOCDMExt::LicenseTypeExt>();
+
+            const uint8_t* drmHeader = nullptr;
+            uint32_t drmHeaderLength = parameters.LockBuffer<uint32_t>(drmHeader);
+
+            OCDM::ISessionExt* session = nullptr;
+            OCDM::IAccessorOCDMExt* accessor =  message->Parameters().Implementation<OCDM::IAccessorOCDMExt>();
+
+            const char * contentId = reinterpret_cast<const char *>(contentIdPtr);
+            OCDM::OCDM_RESULT result = accessor->CreateSessionExt(sessionId, contentId, contentIdLength, licenseType, drmHeader, drmHeaderLength, session);
+
+            response.Number<OCDM::OCDM_RESULT>(result);
+
+
+            response.Number<OCDM::ISessionExt*>(session);
+        },
     };
 
     //
@@ -396,11 +432,25 @@ namespace WPEFramework {
         nullptr
     };
 
+    ProxyStub::MethodHandler SessionExtStubMethods[] = {
+       [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // Loads the data stored for the specified session into the cdm object
+            // virtual uint32_t SessionIdExt() const = 0;
+            //
+            RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+
+            response.Number(message->Parameters().Implementation<OCDM::ISessionExt>()->SessionIdExt());
+        }
+    };
+
     typedef ProxyStub::StubType<OCDM::IAccessorOCDM, AccesorOCDMStubMethods, ProxyStub::UnknownStub> AccessorOCDMStub;
     typedef ProxyStub::StubType<OCDM::IAccessorOCDMExt, AccesorOCDMExtStubMethods, ProxyStub::UnknownStub> AccessorOCDMExtStub;
     typedef ProxyStub::StubType<OCDM::IAccessorOCDM::INotification, AccesorOCDMNotificationStubMethods, ProxyStub::UnknownStub> AccessorOCDMNotificationStub;
     typedef ProxyStub::StubType<OCDM::ISession::ICallback, CallbackStubMethods, ProxyStub::UnknownStub> CallbackStub;
     typedef ProxyStub::StubType<OCDM::ISession, SessionStubMethods, ProxyStub::UnknownStub> SessionStub;
+    typedef ProxyStub::StubType<OCDM::ISessionExt, SessionExtStubMethods, ProxyStub::UnknownStub> SessionExtStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -556,6 +606,40 @@ namespace WPEFramework {
             RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
 
             return (reader.Number<time_t>());
+        }
+
+        virtual OCDM::OCDM_RESULT CreateSessionExt(
+            uint32_t sessionId,
+            const char contentId[],
+            uint32_t contentIdLength,
+            LicenseTypeExt licenseType,
+            const uint8_t drmHeader[],
+            uint32_t drmHeaderLength,
+            OCDM::ISessionExt*& session) override
+        {
+            const uint8_t * contentIdPtr = reinterpret_cast<const uint8_t *>(contentId);
+
+            IPCMessage newMessage(BaseClass::Message(1));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+
+            writer.Number(sessionId);
+            writer.Buffer(contentIdLength, contentIdPtr);
+            writer.Number(licenseType);
+            writer.Buffer(drmHeaderLength, drmHeader);
+
+            Invoke(newMessage);
+
+            RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
+
+            OCDM::OCDM_RESULT result = reader.Number<OCDM::OCDM_RESULT>();
+
+
+            OCDM::ISessionExt* otherSidePtr = reader.Number<OCDM::ISessionExt*>();
+
+            session = CreateProxy<OCDM::ISessionExt>(otherSidePtr);
+
+
+            return result;
         }
     };
  
@@ -756,6 +840,29 @@ namespace WPEFramework {
         }
  
     };
+
+    class SessionExtProxy : public ProxyStub::UnknownProxyType<OCDM::ISessionExt> {
+    public:
+        SessionExtProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation,
+            const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+        virtual ~SessionExtProxy()
+        {
+        }
+
+    public:
+        virtual uint32_t SessionIdExt() const override {
+            IPCMessage newMessage(BaseClass::Message(0));
+
+            Invoke(newMessage);
+
+            RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
+
+            return (reader.Number<uint32_t>());
+        }
+    };
  
     // -------------------------------------------------------------------------------------------
     // These proxy stubs are "loaded" by the next method, which needs to be explicitely called
@@ -769,6 +876,7 @@ namespace {
         {
             RPC::Administrator::Instance().Announce<OCDM::ISession::ICallback, CallbackProxy, CallbackStub>();
             RPC::Administrator::Instance().Announce<OCDM::ISession, SessionProxy, SessionStub>();
+            RPC::Administrator::Instance().Announce<OCDM::ISessionExt, SessionExtProxy, SessionExtStub>();
             RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDM, AccessorOCDMProxy, AccessorOCDMStub>();
             RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDMExt, AccessorOCDMExtProxy, AccessorOCDMExtStub>();
             RPC::Administrator::Instance().Announce<OCDM::IAccessorOCDM::INotification, AccessorOCDMNotificationProxy, AccessorOCDMNotificationStub>();
