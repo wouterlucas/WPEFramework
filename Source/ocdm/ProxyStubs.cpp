@@ -452,6 +452,15 @@ namespace WPEFramework {
             RPC::Data::Frame::Writer response(message->Response().Writer());
 
             response.Text(message->Parameters().Implementation<OCDM::ISessionExt>()->BufferIdExt());
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // virtual uint16_t PlaylevelCompressedVideo() const = 0;
+            //
+            RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+
+            response.Number(message->Parameters().Implementation<OCDM::ISessionExt>()->PlaylevelCompressedVideo());
         }
     };
 
@@ -873,7 +882,7 @@ namespace WPEFramework {
             return (reader.Number<uint32_t>());
         }
 
-        virtual std::string BufferIdExt() const {
+        virtual std::string BufferIdExt() const override {
 
             IPCMessage newMessage(BaseClass::Message(1));
 
@@ -882,6 +891,17 @@ namespace WPEFramework {
             RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
 
             return (reader.Text());
+        }
+
+        virtual uint16_t PlaylevelCompressedVideo() const override {
+
+            IPCMessage newMessage(BaseClass::Message(2));
+
+            Invoke(newMessage);
+
+            RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
+
+            return (reader.Number<uint16_t>());
         }
     };
  

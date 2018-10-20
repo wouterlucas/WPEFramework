@@ -88,6 +88,8 @@ namespace OCDM {
 
         //Report the name to be used for the Shared Memory for exchanging the Encrypted fragements.
         virtual std::string BufferIdExt() const = 0;
+
+        virtual uint16_t PlaylevelCompressedVideo() const = 0;
     };
 
     struct IAccessorOCDM : virtual public WPEFramework::Core::IUnknown {
