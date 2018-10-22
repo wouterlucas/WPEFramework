@@ -141,6 +141,17 @@ namespace Core {
             };
 
             class EXTERNAL Deserializer {
+            public:
+                typedef enum {
+                    ERROR_NONE,
+                    ERROR_UNBALANCED_BRACKET,
+                    ERROR_UNBALANCED_SQUARE_BRACKET,
+                    ERROR_EXCESS_DELIMETER,
+                    ERROR_EXCESS_COMMA,
+                    ERROR_INVALID_KEY,
+                    ERROR_INVALID_OBJECT,
+                    ERROR_INVALID_VALUE
+                } ErrorType;
             private:
                 static constexpr uint32_t EnterFoundBit = 0x01;
                 static constexpr uint32_t SquareBracketFoundBit = 0x02;
@@ -175,16 +186,19 @@ namespace Core {
                     RESULT_INPROGRESS
                 } Result;
                 struct ContainerLevelInfo {
-                    string key;
-                    string value;
+                    std::string key;
+                    std::string value;
                     uint16_t scopeBit;
                     uint16_t scopeCount;
                     Result result;
                     State state;
+                    bool quoteSet;
+                    bool escapeSet;
                     Core::JSON::IElement* childElement;
                     IIterator* elementIterator;
                 };
 
+                typedef std::map<uint16_t, ContainerLevelInfo*> ContainerLevelMap;
             private:
                 Deserializer(const Deserializer&);
                 Deserializer& operator=(const Deserializer&);
@@ -231,17 +245,151 @@ namespace Core {
 
                 uint16_t Deserialize(const uint8_t stream[], const uint16_t maxLength);
                 bool Deserialize(const uint8_t stream[], const uint16_t maxLength, uint16_t& offset);
+                ErrorType Errors() { printf("\n%s\n", _errorMsg.c_str()); return _error;}
+                std::string ErrorMsg() { printf("\n%s\n", _errorMsg.c_str());return _errorMsg;}
 
             private:
                 virtual IElement* Element(const string& identifer = "") = 0;
 
-                inline bool IsDigit(const string str)
+                bool IsNumber(const std::string str)
                 {
-                    return (str.find_first_not_of( "0123456789" ) == string::npos);
+                    bool isNumber = false;
+                    if (str.find_first_not_of( "0123456789.eE+-" ) == string::npos) {
+                        bool digitFound = false;
+                        bool exponentialFound = false;
+                        bool nagativeFlagFound = false;
+                        bool positiveFlagFound = false;
+                        bool fractionFlagFound = false;
+                        bool stopped = false;
+                        uint8_t i = 0;
+                        for (; (i < str.length()) && (stopped == false); ++i) {
+                            switch (str[i]) {
+                            case '-' : {
+                                if ((nagativeFlagFound != true) && ((digitFound != true) || (exponentialFound == true))) {
+                                    nagativeFlagFound = true;
+                                }
+                                else {
+                                    stopped = true;
+                                }
+                                break;
+                            }
+                            case '+' : {
+                                if ((positiveFlagFound != true) && (exponentialFound == true)) {
+                                    positiveFlagFound = true;
+                                }
+                                else {
+                                    stopped = true;
+                                }
+                                break;
+                            }
+                            case '.': {
+                                if ((fractionFlagFound == true) || (digitFound != true)) {
+                                    stopped = true;
+                                }
+                                else {
+                                    fractionFlagFound = true;
+                                }
+                                break;
+                            }
+                            case 'e':
+                            case 'E': {
+                                if ((exponentialFound != true) && (digitFound == true)) {
+                                    exponentialFound = true;
+                                    nagativeFlagFound = false; // Reset nagative flag to read exponention signs
+                                }
+                                else {
+                                    stopped = true;
+                                }
+                                break;
+                            }
+                            case '0': {
+                                if ((digitFound != true) && (str[i+1] != '.')) {
+                                    stopped  = true;
+                                }
+                                else {
+                                    if (digitFound != true) {
+                                        digitFound = true;
+                                    }
+                                }
+                                break;
+                            }
+                            case '1' ... '9': {
+                                if (digitFound != true) {
+                                    digitFound = true;
+                                }
+                                break;
+                            }
+                            }
+                        }
+                        if (stopped != true) {
+                            isNumber = true;
+                        }
+                    }
+                    return isNumber;
                 }
                 inline bool IsBool(const string str)
                 {
-                    return ((strcasecmp(str.c_str(), "true") == 0) || (strcasecmp(str.c_str (), "false") == 0));
+                    return ((strcmp(str.c_str(), "true") == 0) || (strcmp(str.c_str (), "false") == 0));
+                }
+                inline bool IsNull(const string str)
+                {
+                    return (strcmp(str.c_str(), "null") == 0);
+                }
+                bool IsString(string& str)
+                {
+                    bool isValid = true;
+                    if (str.length() > 0) {
+                        bool escapeSet = false;
+                        if ((str.at(0) != '\"') || (str.length() == 1) || (str.at(str.length() - 1) != '\"')) {
+                            isValid = false;
+                        }
+                        else {
+                            str = Trim(str, "\"");
+                            auto it = str.begin();
+                            while ((it != str.end()) && (isValid == true)) {
+                                if (*it == '\\') {
+                                    ++it;
+                                    if (it == str.end()) {
+                                        isValid = false;
+                                        break;
+                                    }
+                                    escapeSet = true;
+                                }
+                                if (escapeSet == true) {
+                                    escapeSet = false;
+
+                                    switch (*it) {
+                                    case '"':
+                                    case '/':
+                                    case '\\':
+                                    case 'b':
+                                    case 'f':
+                                    case 'r':
+                                    case 'n':
+                                    case 't':
+                                        break;
+                                    case 'u': {
+                                        uint32_t position = std::distance(str.begin(), it);
+                                        if ((position + 4) < str.length())
+                                            isValid = false;
+                                        break;
+                                    }
+                                    default:
+                                        isValid = false;
+                                        break;
+                                    }
+                                }
+                                else {
+                                    if (*it == '"') {
+                                        isValid = false;
+                                        //break;
+                                    }
+                                }
+                            ++it;
+                            }
+                        }
+                    }
+                    return isValid;
                 }
                 inline std::string Trim(std::string& str, std::string substr)
                 {
@@ -337,37 +485,54 @@ namespace Core {
                     value = Trim(value, WhiteSpaces);
                     bool isValid = false;
                     if (value.empty() != true) {
-                        if ((IsDigit(value) == true) || (IsBool(value) == true) || (ContainsNull(value) == true)) {
+                        if ((IsNumber(value) == true) || (IsBool(value) == true) || (IsNull(value) == true) || (IsString(value) == true)) {
                             isValid = true;
-                        } else if ((value.at(0) == '\"') && (value.length() > 1) && (value.at(value.length() - 1) == '\"')) {
-                            //Find number of strings
-                            int count = 0;
-                            for (string::size_type i = 0; i < value.size(); ++i) {
-                                if (value[i] == '\"') {
-                                    count++;
-                                }
-                            }
-                            if (count == 2) {
-                                value = Trim(value, "\"");
-                                isValid = true;
-                            }
                         }
                     }
                     return isValid;
                 }
-                bool IsCompleteData(std::string& value)
+                void FindKey(std::string& key)
                 {
-                   value = Trim(value, WhiteSpaces);
-                   bool isComplete = true;
-                   if (value.empty() != true) {
-                       if (value.at(0) == '\"') {
-                           if ((value.length() == 1) || (value.at(value.length() - 1) != '\"')) {
-                               isComplete = false;
-                           }
-                       }
-                   }
-                   return isComplete;
+                    for (uint16_t containerLevel = _containerLevel; containerLevel >= 1; --containerLevel) {
+                        ContainerLevelMap::iterator it = _containerLevelMap.find(containerLevel);
+
+                        if (it != _containerLevelMap.end()) {
+                            ContainerLevelInfo* containerLevelInfo = it->second;
+                            if (containerLevelInfo->key.empty() != true) {
+                                key = containerLevelInfo->key;
+                                break;
+                            }
+                        }
+                    }
                 }
+                ErrorType FindErrorType(uint16_t scopeBit)
+                {
+                    ErrorType errorType = ERROR_NONE;
+                    if (IsDelimeterSet(scopeBit) == true) {
+                        errorType = ERROR_EXCESS_DELIMETER;
+                    }
+                    else if (IsCommaSet(scopeBit) == true) {
+                        errorType = ERROR_EXCESS_COMMA;
+                    }
+                    else if (IsEnterSet(scopeBit) == true) {
+                        errorType = ERROR_UNBALANCED_BRACKET;
+                    }
+                    else if (IsSquareBracketSet(scopeBit) == true) {
+                        errorType = ERROR_UNBALANCED_SQUARE_BRACKET;
+                    }
+                    return errorType;
+                }
+                void Errors(ErrorType errorType, string value)
+                {
+                    _error = errorType;
+                    string key;
+                    FindKey(key);
+                    _errorMsg = string(Core::EnumerateType<ErrorType>(errorType).Data()) + " Error at Container Level[" + std::to_string(_containerLevel) +"] Key:"+ key.c_str();
+                    if (value.empty() != true) {
+                        _errorMsg += " Value:" + value;
+                    }
+                }
+
             protected:
                 IElement* _element;
 
@@ -383,8 +548,10 @@ namespace Core {
                 Core::CriticalSection _adminLock;
                 std::string _buffer;
                 Result _result;
+                ErrorType _error;
+                string _errorMsg;
                 uint16_t _containerLevel;
-                std::map<uint16_t, ContainerLevelInfo*> _containerLevelMap;
+                ContainerLevelMap _containerLevelMap;
             };
 
             template <typename INSTANCEOBJECT>
@@ -476,6 +643,7 @@ namespace Core {
 
                         isValid = deserializer.Deserialize((const uint8_t*)buffer, size,  offset);
                     }
+                    if (isValid != true) deserializer.Errors();
                 } else {
                     isValid = false;
                 }
@@ -587,6 +755,7 @@ namespace Core {
                             usedBytes = 0;
                         }
                     }
+                    if (isValid != true) deserializer.Errors();
                     if (unusedBytes != 0) {
                         fileObject.Position(true, -unusedBytes);
                     }
@@ -2043,6 +2212,7 @@ namespace Core {
 
                         ASSERT(offset <= size);
                     }
+                    if (isValid != true) _deserializer.Errors();
                 } else {
                     isValid = false;
                 }
@@ -2059,7 +2229,6 @@ namespace Core {
                 // Serialize object
                 while (_ready == false) {
                     uint16_t loaded = _serializer.Serialize(_buffer, SIZE);
-
                     ASSERT(loaded <= SIZE);
 
                     fillCount += loaded;

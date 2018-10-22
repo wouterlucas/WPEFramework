@@ -1,6 +1,17 @@
 #include "JSON.h"
 
 namespace WPEFramework {
+ENUM_CONVERSION_BEGIN(Core::JSON::IElement::Deserializer::ErrorType)
+
+    { Core::JSON::IElement::Deserializer::ERROR_UNBALANCED_BRACKET, _TXT("Unbalanced Bracket") },
+    { Core::JSON::IElement::Deserializer::ERROR_UNBALANCED_SQUARE_BRACKET, _TXT("Unbalanced Square Bracket") },
+    { Core::JSON::IElement::Deserializer::ERROR_EXCESS_DELIMETER, _TXT("Excess Delimeter") },
+    { Core::JSON::IElement::Deserializer::ERROR_EXCESS_COMMA, _TXT("Excess Comma") },
+    { Core::JSON::IElement::Deserializer::ERROR_INVALID_KEY, _TXT("Invalid Key") },
+    { Core::JSON::IElement::Deserializer::ERROR_INVALID_OBJECT, _TXT("Invalid Object") },
+    { Core::JSON::IElement::Deserializer::ERROR_INVALID_VALUE, _TXT("Invalid Value") },
+ENUM_CONVERSION_END(Core::JSON::IElement::Deserializer::ErrorType)
+
 namespace Core {
     namespace JSON {
 
@@ -556,7 +567,7 @@ namespace Core {
 
             bool finished = false;
             ContainerLevelInfo* containerLevelInfo;
-            std::map<uint16_t, ContainerLevelInfo*>::iterator it;
+            ContainerLevelMap::iterator it;
 
             it = _containerLevelMap.find(_containerLevel);
 
@@ -656,6 +667,7 @@ namespace Core {
                             ResetSquareBracketBit(containerLevelInfo->scopeBit, containerLevelInfo->scopeCount);
                         } else {
                             containerLevelInfo->result = RESULT_FAILURE;
+                            Errors(ERROR_UNBALANCED_SQUARE_BRACKET, "");
                             break;
                         }
                     } else if (stream[offset] == ']') {
@@ -667,13 +679,13 @@ namespace Core {
                         containerLevelInfo->result = _result = RESULT_SUCCESS;
                         continue;
                     }
-                } else if (WhiteSpace(stream[offset])) {
+                } else if (WhiteSpace(stream[offset]) && !(((containerLevelInfo->state == STATE_VALUE) || (containerLevelInfo->state == STATE_CONTAINER_VALUE)) && (containerLevelInfo->value.empty() != true)))  {
                     // Skip whiteSpace.
                     continue;
                 } else if (stream[offset] == ',') {
-
                     if ((containerLevelInfo->result == RESULT_INPROGRESS) && (containerLevelInfo->state == STATE_NONE)) { // Comma is occured before a valid data
                         containerLevelInfo->result = RESULT_FAILURE;
+                        Errors(ERROR_EXCESS_COMMA, containerLevelInfo->value);
                         finished = true;
                         break;
                     }
@@ -686,6 +698,7 @@ namespace Core {
                         if (IsSquareBracketSet(containerLevelInfo->scopeBit)) {
 
                             containerLevelInfo->state = STATE_VALUE;
+                            containerLevelInfo->value.clear();
                             IArrayIterator* elementList = dynamic_cast<IArrayIterator*>(containerLevelInfo->elementIterator);
                             if (elementList != nullptr) {
                                 elementList->AddElement();
@@ -697,6 +710,7 @@ namespace Core {
                             }
                         } else {
                             containerLevelInfo->state = STATE_KEY;
+                            containerLevelInfo->key.clear();
                         }
                     }
                 }
@@ -708,6 +722,7 @@ namespace Core {
                         if (stream[offset] == ':') {
 
                             if (IsValidKey(containerLevelInfo->key) != true) {
+                                Errors(ERROR_INVALID_KEY, "");
                                 containerLevelInfo->result = RESULT_FAILURE;
                                 finished = true;
                                 break;
@@ -722,12 +737,12 @@ namespace Core {
                             }
 
                             containerLevelInfo->state = STATE_VALUE;
+                            containerLevelInfo->value.clear();
                             SetDelimeterBit(containerLevelInfo->scopeBit, containerLevelInfo->scopeCount);
                             if (IsCommaSet(containerLevelInfo->scopeBit)) {
                                 ResetCommaBit(containerLevelInfo->scopeBit, containerLevelInfo->scopeCount);
                             }
 
-                            containerLevelInfo->key.clear();
                         } else {
                             containerLevelInfo->key += stream[offset];
                             offset++;
@@ -739,10 +754,11 @@ namespace Core {
                 case STATE_CONTAINER_VALUE: {
                     while ((offset < maxLength) && ((containerLevelInfo->state == STATE_VALUE) || (containerLevelInfo->state == STATE_CONTAINER_VALUE))) {
 
-                        if (((stream[offset] == ',') && ((IsCompleteData(containerLevelInfo->value) == true) || (containerLevelInfo->state == STATE_CONTAINER_VALUE))) || (ExitScope(stream[offset]))) {
+                        if (((stream[offset] == ',') && ((containerLevelInfo->quoteSet == false) || (containerLevelInfo->state == STATE_CONTAINER_VALUE))) || (ExitScope(stream[offset]))) {
 
                             if (((containerLevelInfo->state == STATE_VALUE)) && IsValidData(containerLevelInfo->value) != true) {
                                 finished = true;
+                                Errors(ERROR_INVALID_VALUE, containerLevelInfo->value);
                                 containerLevelInfo->result = RESULT_FAILURE;
                                 break;
                             }
@@ -761,20 +777,33 @@ namespace Core {
                                 ResetDelimeterBit(containerLevelInfo->scopeBit, containerLevelInfo->scopeCount);
                             }
 
-                            if (containerLevelInfo->state == STATE_VALUE){
-                            if (containerLevelInfo->childElement != nullptr) {
-                                if (containerLevelInfo->childElement->Type() == PARSE_BUFFERED) {
-                                    containerLevelInfo->childElement->BufferParser()->Deserialize(containerLevelInfo->value);
-                                } else if (containerLevelInfo->childElement->Type() == PARSE_DIRECT) {
-                                    *((Core::JSON::String*)containerLevelInfo->childElement) = containerLevelInfo->value;
-                                } else {
-                                    containerLevelInfo->result = RESULT_FAILURE;
+                            if (containerLevelInfo->state == STATE_VALUE) {
+                                if (containerLevelInfo->childElement != nullptr) {
+                                    if (containerLevelInfo->childElement->Type() == PARSE_BUFFERED) {
+                                        containerLevelInfo->childElement->BufferParser()->Deserialize(containerLevelInfo->value);
+                                    } else if (containerLevelInfo->childElement->Type() == PARSE_DIRECT) {
+                                        if (ContainsNull(containerLevelInfo->value) != true) {
+                                            *((Core::JSON::String*)containerLevelInfo->childElement) = containerLevelInfo->value;
+                                        }
+                                    } else {
+                                        containerLevelInfo->result = RESULT_FAILURE;
+                                        Errors(ERROR_INVALID_OBJECT, "");
+                                    }
                                 }
                             }
-                            }
                             containerLevelInfo->state = STATE_NONE;
-                            containerLevelInfo->value.clear();
                         } else {
+                            if ((stream[offset] == '\"') && (containerLevelInfo->escapeSet == false)) {
+                                containerLevelInfo->quoteSet = !containerLevelInfo->quoteSet;
+                            }
+                            else {
+                                if ((stream[offset] == '\\') && (containerLevelInfo->escapeSet == false)) {
+                                    containerLevelInfo->escapeSet = true;
+                                }
+                                else {
+                                    containerLevelInfo->escapeSet = false;
+                                }
+                            }
                             containerLevelInfo->value += stream[offset];
                             offset++;
                         }
@@ -791,22 +820,26 @@ namespace Core {
                     break;
                 }
             }
+            _result = containerLevelInfo->result;
 
             bool status = true;
-            if ((startOffset == 0) && (offset < maxLength) && (_containerLevel == 1)) {
+            if ((startOffset == 0) && (_containerLevel == 1) && (offset < maxLength) && ((offset != maxLength - 1) && (stream[offset] != '\0'))) {
                 status = false;
             }
-            if (/*(containerLevelInfo->result == RESULT_FAILURE) ||*/ (finished == true) && (containerLevelInfo->result != RESULT_INPROGRESS)) {
-                if ((containerLevelInfo->scopeCount != 0) || (containerLevelInfo->result == RESULT_FAILURE)) {
-                    status = false;
+            if ((finished == true) && (containerLevelInfo->result != RESULT_INPROGRESS)) {
+                if ((containerLevelInfo->scopeCount != 0) && (containerLevelInfo->result != RESULT_FAILURE)) {
+                    _result = containerLevelInfo->result = RESULT_FAILURE;
+                    Errors(FindErrorType(containerLevelInfo->scopeBit), containerLevelInfo->value);
                 }
-                _containerLevelMap.erase(_containerLevel);
+               _containerLevelMap.erase(_containerLevel);
                 delete containerLevelInfo;
             }
 
-            _containerLevel--;
-            _result = containerLevelInfo->result;
+            if (_result == RESULT_FAILURE) {
+                status = false;
+            }
 
+            _containerLevel--;
             return (status);
         }
     }
