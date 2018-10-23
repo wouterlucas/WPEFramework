@@ -211,6 +211,14 @@ namespace OCDM {
                 const std::string& storeLocation) = 0;
 
         virtual OCDM_RESULT InitSystemNetflix() = 0;
+
+        virtual OCDM_RESULT TeardownSystemNetflix() = 0;
+
+        virtual OCDM_RESULT DeleteSecureStore() = 0;
+
+        virtual OCDM_RESULT GetSecureStoreHash(
+                uint8_t secureStoreHash[],
+                uint32_t secureStoreHashLength) = 0;
     };
 }
 
