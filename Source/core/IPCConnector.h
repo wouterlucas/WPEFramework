@@ -1137,7 +1137,8 @@ namespace Core {
                     _parent.CallProcedure(handler, inbound);
                 }
 				else {
-					TRACE_L1("No handler defined to handle the incoming frames. [%d]", message->Label());
+                                        // TODO: this doesn't seem to cause issues, but still, we need to figure the reason for this message out
+					//TRACE_L1("No handler defined to handle the incoming frames. [%d]", message->Label());
 				}
             }
 
