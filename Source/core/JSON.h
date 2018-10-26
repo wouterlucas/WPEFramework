@@ -267,8 +267,7 @@ namespace Core {
                             case '-' : {
                                 if ((nagativeFlagFound != true) && ((digitFound != true) || (exponentialFound == true))) {
                                     nagativeFlagFound = true;
-                                }
-                                else {
+                                } else {
                                     stopped = true;
                                 }
                                 break;
@@ -276,8 +275,7 @@ namespace Core {
                             case '+' : {
                                 if ((positiveFlagFound != true) && (exponentialFound == true)) {
                                     positiveFlagFound = true;
-                                }
-                                else {
+                                } else {
                                     stopped = true;
                                 }
                                 break;
@@ -285,8 +283,7 @@ namespace Core {
                             case '.': {
                                 if ((fractionFlagFound == true) || (digitFound != true)) {
                                     stopped = true;
-                                }
-                                else {
+                                } else {
                                     fractionFlagFound = true;
                                 }
                                 break;
@@ -296,17 +293,15 @@ namespace Core {
                                 if ((exponentialFound != true) && (digitFound == true)) {
                                     exponentialFound = true;
                                     nagativeFlagFound = false; // Reset nagative flag to read exponention signs
-                                }
-                                else {
+                                } else {
                                     stopped = true;
                                 }
                                 break;
                             }
                             case '0': {
-                                if ((digitFound != true) && (str[i+1] != '.')) {
+                                if ((digitFound != true) && (str[i+1] != '.') && (str.size() > 1)) {
                                     stopped  = true;
-                                }
-                                else {
+                                } else {
                                     if (digitFound != true) {
                                         digitFound = true;
                                     }
@@ -342,8 +337,7 @@ namespace Core {
                         bool escapeSet = false;
                         if ((str.at(0) != '\"') || (str.length() == 1) || (str.at(str.length() - 1) != '\"')) {
                             isValid = false;
-                        }
-                        else {
+                        } else {
                             str = Trim(str, "\"");
                             auto it = str.begin();
                             while ((it != str.end()) && (isValid == true)) {
@@ -378,8 +372,7 @@ namespace Core {
                                         isValid = false;
                                         break;
                                     }
-                                }
-                                else {
+                                } else {
                                     if (*it == '"') {
                                         isValid = false;
                                         //break;

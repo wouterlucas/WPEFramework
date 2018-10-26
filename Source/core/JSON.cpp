@@ -795,12 +795,10 @@ namespace Core {
                         } else {
                             if ((stream[offset] == '\"') && (containerLevelInfo->escapeSet == false)) {
                                 containerLevelInfo->quoteSet = !containerLevelInfo->quoteSet;
-                            }
-                            else {
+                            } else {
                                 if ((stream[offset] == '\\') && (containerLevelInfo->escapeSet == false)) {
                                     containerLevelInfo->escapeSet = true;
-                                }
-                                else {
+                                } else {
                                     containerLevelInfo->escapeSet = false;
                                 }
                             }
