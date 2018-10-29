@@ -671,6 +671,8 @@ namespace Core {
                             break;
                         }
                     } else if (stream[offset] == ']') {
+                            containerLevelInfo->result = RESULT_FAILURE;
+                            Errors(ERROR_UNBALANCED_BRACKET, "");
                         break;
                     }
 
@@ -743,6 +745,9 @@ namespace Core {
                                 ResetCommaBit(containerLevelInfo->scopeBit, containerLevelInfo->scopeCount);
                             }
 
+                        } else if (ExitScope(stream[offset])) {
+                            --offset;
+                            break;
                         } else {
                             containerLevelInfo->key += stream[offset];
                             offset++;
@@ -786,8 +791,10 @@ namespace Core {
                                             *((Core::JSON::String*)containerLevelInfo->childElement) = containerLevelInfo->value;
                                         }
                                     } else {
-                                        containerLevelInfo->result = RESULT_FAILURE;
-                                        Errors(ERROR_INVALID_OBJECT, "");
+                                        if (containerLevelInfo->key.empty() != true) {
+                                            containerLevelInfo->result = RESULT_FAILURE;
+                                            Errors(ERROR_INVALID_OBJECT, "");
+                                        }
                                     }
                                 }
                             }
@@ -795,10 +802,12 @@ namespace Core {
                         } else {
                             if ((stream[offset] == '\"') && (containerLevelInfo->escapeSet == false)) {
                                 containerLevelInfo->quoteSet = !containerLevelInfo->quoteSet;
-                            } else {
+                            }
+                            else {
                                 if ((stream[offset] == '\\') && (containerLevelInfo->escapeSet == false)) {
                                     containerLevelInfo->escapeSet = true;
-                                } else {
+                                }
+                                else {
                                     containerLevelInfo->escapeSet = false;
                                 }
                             }
@@ -831,6 +840,7 @@ namespace Core {
                 }
                _containerLevelMap.erase(_containerLevel);
                 delete containerLevelInfo;
+                _element = nullptr;
             }
 
             if (_result == RESULT_FAILURE) {

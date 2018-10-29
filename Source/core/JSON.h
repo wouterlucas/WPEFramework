@@ -265,43 +265,49 @@ namespace Core {
                         for (; (i < str.length()) && (stopped == false); ++i) {
                             switch (str[i]) {
                             case '-' : {
-                                if ((nagativeFlagFound != true) && ((digitFound != true) || (exponentialFound == true))) {
+                                if ((nagativeFlagFound != true) && (((digitFound != true) && (fractionFlagFound != true)) || (exponentialFound == true)) && (i < (str.length() - 1))) {
                                     nagativeFlagFound = true;
-                                } else {
+                                }
+                                else {
                                     stopped = true;
                                 }
                                 break;
                             }
                             case '+' : {
-                                if ((positiveFlagFound != true) && (exponentialFound == true)) {
+                                if ((positiveFlagFound != true) && (exponentialFound == true) && (i < (str.length() - 1))) {
                                     positiveFlagFound = true;
-                                } else {
+                                }
+                                else {
                                     stopped = true;
                                 }
                                 break;
                             }
                             case '.': {
-                                if ((fractionFlagFound == true) || (digitFound != true)) {
+                                if ((fractionFlagFound == true) || (digitFound != true) || (exponentialFound == true) || (i >= (str.length() - 1))) {
                                     stopped = true;
-                                } else {
+                                }
+                                else {
                                     fractionFlagFound = true;
+                                    digitFound = 0; //Reset to start digits after fraction
                                 }
                                 break;
                             }
                             case 'e':
                             case 'E': {
-                                if ((exponentialFound != true) && (digitFound == true)) {
+                                if ((exponentialFound != true) && (digitFound == true) && (i < (str.length() - 1))) {
                                     exponentialFound = true;
                                     nagativeFlagFound = false; // Reset nagative flag to read exponention signs
-                                } else {
+                                }
+                                else {
                                     stopped = true;
                                 }
                                 break;
                             }
                             case '0': {
-                                if ((digitFound != true) && (str[i+1] != '.') && (str.size() > 1)) {
+                                if ((digitFound != true) && (fractionFlagFound != true) && (str[i+1] != '.') && (str.length() > 1)) {
                                     stopped  = true;
-                                } else {
+                                }
+                                else {
                                     if (digitFound != true) {
                                         digitFound = true;
                                     }
@@ -337,8 +343,9 @@ namespace Core {
                         bool escapeSet = false;
                         if ((str.at(0) != '\"') || (str.length() == 1) || (str.at(str.length() - 1) != '\"')) {
                             isValid = false;
-                        } else {
-                            str = Trim(str, "\"");
+                        }
+                        else {
+                            str = str.substr(1, str.length() - 2);
                             auto it = str.begin();
                             while ((it != str.end()) && (isValid == true)) {
                                 if (*it == '\\') {
@@ -364,15 +371,17 @@ namespace Core {
                                         break;
                                     case 'u': {
                                         uint32_t position = std::distance(str.begin(), it);
-                                        if ((position + 4) < str.length())
+                                        if ((position + 4) < str.length()) {
                                             isValid = false;
+                                        }
                                         break;
                                     }
                                     default:
                                         isValid = false;
                                         break;
                                     }
-                                } else {
+                                }
+                                else {
                                     if (*it == '"') {
                                         isValid = false;
                                         //break;
