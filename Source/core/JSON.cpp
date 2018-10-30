@@ -637,8 +637,13 @@ namespace Core {
                         }
 
                         if (_result == RESULT_SUCCESS) {
-                            containerLevelInfo->state = STATE_CONTAINER_VALUE;
-                            containerLevelInfo->result = _result = RESULT_INPROGRESS;
+                            if (IsEnterSet(containerLevelInfo->scopeBit)) {
+                                containerLevelInfo->state = STATE_CONTAINER_VALUE;
+                                containerLevelInfo->result = _result = RESULT_INPROGRESS;
+                            } else { // Reached outer container, which does not have braces
+                                containerLevelInfo->result = _result;
+                                finished = true;
+                            }
                         }
                         offset--; //Just point to the end position of previous parsing
                     } else if (containerLevelInfo->state == STATE_VALUE) {
@@ -838,9 +843,11 @@ namespace Core {
                     _result = containerLevelInfo->result = RESULT_FAILURE;
                     Errors(FindErrorType(containerLevelInfo->scopeBit), containerLevelInfo->value);
                 }
-               _containerLevelMap.erase(_containerLevel);
+                _containerLevelMap.erase(_containerLevel);
                 delete containerLevelInfo;
-                _element = nullptr;
+                if (_containerLevel == 1) {
+                    _element = nullptr;
+                }
             }
 
             if (_result == RESULT_FAILURE) {
