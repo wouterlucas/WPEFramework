@@ -13,6 +13,7 @@
 #include "IRPCLink.h"
 #include "IRtspClient.h"
 #include "IStreaming.h"
+#include "ISystemCommand.h"
 #include "ITVControl.h"
 #include "IWebDriver.h"
 #include "IWebServer.h"
@@ -1643,6 +1644,111 @@ namespace ProxyStubs {
         nullptr
     };
 
+    // ISystemCommand stub definitions (interface/ISystemCommand.h)
+    ProxyStub::MethodHandler SystemCommandStubMethods[] = {
+         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+             //
+             // void Register(const CommandId& id, ISystemCommand::IExecutor* delegate);
+             //
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+
+            ISystemCommand::CommandId id = reader.Text();
+            ISystemCommand::IExecutor* implementation = reader.Number<ISystemCommand::IExecutor*>();
+            ISystemCommand::IExecutor* proxy =
+                RPC::Administrator::Instance().CreateProxy<ISystemCommand::IExecutor>(channel,
+                    implementation,
+                    true, false);
+
+            ASSERT((proxy != nullptr) && "Failed to create proxy");
+
+            if (proxy == nullptr) {
+                TRACE_L1(_T("Could not create a stub for ISystemCommand::IExecutor: %p"), implementation);
+            } else {
+                parameters.Implementation<ISystemCommand>()->Register(id, proxy);
+                if (proxy->Release() != Core::ERROR_NONE) {
+                    TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
+                }
+            }
+         },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // void Unregister(ISystemCommand::IExecutor* delegate) = 0;
+            //
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+
+            // Need to find the proxy that goes with the given implementation..
+            ISystemCommand::IExecutor* stub = reader.Number<ISystemCommand::IExecutor*>();
+
+            // NOTE: FindProxy does *NOT* AddRef the result. Do not release what is obtained via FindProxy..
+            ISystemCommand::IExecutor* proxy =
+                RPC::Administrator::Instance().FindProxy<ISystemCommand::IExecutor>(channel.operator->(), stub);
+
+            if (proxy == nullptr) {
+                TRACE_L1(_T("Could not find a stub for ISystemCommand::IExecutor: %p"), stub);
+            } else {
+                parameters.Implementation<ISystemCommand>()->Unregister(proxy);
+            }
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // bool Execute(const CommandId& id, const CommandParams& params);
+            //
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+
+            auto id = reader.Text();
+            size_t size = reader.Number<size_t>();
+            ISystemCommand::CommandParams params;
+            for (size_t i = 0u; i < size; ++i) {
+                ISystemCommand::CommandParam param;
+                param.name = reader.Text();
+                param.value = reader.Text();
+                params.push_back(param);
+            }
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            response.Boolean(parameters.Implementation<ISystemCommand>()->Execute(id, params));
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // std::vector<CommandId> SupportedCommands() const
+            //
+            RPC::Data::Input& parameters(message->Parameters());
+            auto commands = parameters.Implementation<ISystemCommand>()->SupportedCommands();
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            response.Number(commands.size());
+            for (auto& command : commands) {
+                response.Text(command);
+            }
+        },
+         nullptr
+    };
+
+    // ISystemCommand::IExecutor stub definitions (interface/ISystemCommand.h)
+    ProxyStub::MethodHandler SystemCommandExecutorStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // bool Execute(const CommandParams& params);
+            //
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+
+            size_t size = reader.Number<size_t>();
+            ISystemCommand::CommandParams params;
+            for (size_t i = 0u; i < size; ++i) {
+                ISystemCommand::CommandParam param;
+                param.name = reader.Text();
+                param.value = reader.Text();
+                params.push_back(param);
+            }
+
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            response.Boolean(parameters.Implementation<ISystemCommand::IExecutor>()->Execute(params));
+        },
+         nullptr
+    };
+
     // IRPCLink::INotification interface stub definitions
 
     typedef ProxyStub::StubType<IBrowser, BrowserStubMethods, ProxyStub::UnknownStub> BrowserStub;
@@ -1675,6 +1781,8 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IRtspClient, RtspClientStubMethods, ProxyStub::UnknownStub> RtspClientStub;
     typedef ProxyStub::StubType<IPower, PowerStubMethods, ProxyStub::UnknownStub> PowerStub;
     typedef ProxyStub::StubType<IPower::INotification, PowerNotificationStubMethods, ProxyStub::UnknownStub> PowerNotificationStub;
+    typedef ProxyStub::StubType<ISystemCommand, SystemCommandStubMethods, ProxyStub::UnknownStub> SystemCommandExecutorStub;
+    typedef ProxyStub::StubType<ISystemCommand::IExecutor, SystemCommandExecutorStubMethods, ProxyStub::UnknownStub> SystemCommandExecutorDelegateStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -3237,6 +3345,104 @@ namespace ProxyStubs {
             Invoke(newMessage);
         }
     };
+
+    // -------------------------------------------------------------------------------------------
+    // ISystemCommand
+    // -------------------------------------------------------------------------------------------
+    class SystemCommandProxy : public ProxyStub::UnknownProxyType<ISystemCommand> {
+    public:
+        SystemCommandProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~SystemCommandProxy()
+        {
+        }
+
+    public:
+        // Stub order:
+        // void Register(const CommandId& id, ISystemCommand::IExecutor* delegate);
+        // void Unregister(ISystemCommand::IExecutor* delegate);
+        // bool Execute(const CommandId& id, const CommandParams& params);
+        // std::vector<CommandId> SupportedCommands() const;
+
+        void Register(const CommandId& id, ISystemCommand::IExecutor* delegate) override
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Text(id);
+            writer.Number<ISystemCommand::IExecutor*>(delegate);
+            Invoke(newMessage);
+        }
+
+        void Unregister(ISystemCommand::IExecutor* delegate) override
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number<ISystemCommand::IExecutor*>(delegate);
+            Invoke(newMessage);
+        }
+
+        bool Execute(const CommandId& id, const CommandParams& params) override
+        {
+            IPCMessage newMessage(BaseClass::Message(2));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Text(id);
+            writer.Number(params.size());
+            for (auto& param : params) {
+                writer.Text(param.name);
+                writer.Text(param.value);
+            }
+            Invoke(newMessage);
+            return newMessage->Response().Reader().Boolean();
+        }
+
+        std::vector<CommandId> SupportedCommands() const override
+        {
+            IPCMessage newMessage(BaseClass::Message(3));
+            Invoke(newMessage);
+            RPC::Data::Frame::Reader reader(newMessage->Response().Reader());
+            size_t size = reader.Number<size_t>();
+            std::vector<CommandId> result;
+            for (auto i = 0u; i < size; ++i) {
+                result.push_back(reader.Text());
+            }
+            return result;
+        }
+    };
+
+    // -------------------------------------------------------------------------------------------
+    // ISystemCommand::IExecutor
+    // -------------------------------------------------------------------------------------------
+    class SystemCommandExecutorProxy : public ProxyStub::UnknownProxyType<ISystemCommand::IExecutor> {
+    public:
+        SystemCommandExecutorProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~SystemCommandExecutorProxy()
+        {
+        }
+
+    public:
+        // Stub order:
+        // bool Execute(const CommandParams& params);
+        bool Execute(const ISystemCommand::CommandParams& params) override
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number(params.size());
+            for (auto& param : params) {
+                writer.Text(param.name);
+                writer.Text(param.value);
+            }
+            Invoke(newMessage);
+            return newMessage->Response().Reader().Boolean();
+        }
+    };
+
     // -------------------------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------------------------
@@ -3274,6 +3480,8 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IPower, PowerProxy, PowerStub>();
             RPC::Administrator::Instance().Announce<IPower::INotification, PowerNotificationProxy, PowerNotificationStub>();
             RPC::Administrator::Instance().Announce<IRtspClient, RtspClientProxy, RtspClientStub>();
+            RPC::Administrator::Instance().Announce<ISystemCommand, SystemCommandProxy, SystemCommandExecutorStub>();
+            RPC::Administrator::Instance().Announce<ISystemCommand::IExecutor, SystemCommandExecutorProxy, SystemCommandExecutorDelegateStub>();
         }
 
         ~Instantiation()
