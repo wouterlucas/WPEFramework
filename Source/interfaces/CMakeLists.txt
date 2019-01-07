@@ -37,6 +37,7 @@ set(PUBLIC_HEADERS
         IRtspClient.h
         IWebDriver.h
         IWebServer.h
+        IMallocDummy.h
         Module.h
         )
 
