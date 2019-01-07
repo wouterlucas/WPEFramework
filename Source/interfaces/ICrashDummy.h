@@ -13,6 +13,7 @@ struct ICrashDummy : virtual public Core::IUnknown {
     virtual ~ICrashDummy() {}
 
     virtual void Crash() = 0;
+    virtual bool Configure(PluginHost::IShell *shell) = 0;
 
 };
 
