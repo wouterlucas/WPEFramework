@@ -16,6 +16,7 @@ set(PUBLIC_HEADERS
         ICommand.h
         IComposition.h
         IContentDecryption.h
+        ICrashDummy.h
         IDictionary.h
         IDRM.h
         IExternal.h

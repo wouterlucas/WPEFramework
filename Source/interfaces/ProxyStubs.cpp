@@ -16,6 +16,7 @@
 #include "ITVControl.h"
 #include "IWebDriver.h"
 #include "IWebServer.h"
+#include "ICrashDummy.h"
 
 MODULE_NAME_DECLARATION(BUILDREF_WEBBRIDGE)
 
@@ -1643,6 +1644,18 @@ namespace ProxyStubs {
         nullptr
     };
 
+    //
+    // ICrashDummy interface stub definitions (interface/ICrashDummy.h)
+    //
+    ProxyStub::MethodHandler CrashDummyStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            // virtual void Crash() = 0;
+
+            message->Parameters().Implementation<ICrashDummy>()->Crash();
+        },
+        nullptr
+    };
+
     // IRPCLink::INotification interface stub definitions
 
     typedef ProxyStub::StubType<IBrowser, BrowserStubMethods, ProxyStub::UnknownStub> BrowserStub;
@@ -1675,6 +1688,7 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IRtspClient, RtspClientStubMethods, ProxyStub::UnknownStub> RtspClientStub;
     typedef ProxyStub::StubType<IPower, PowerStubMethods, ProxyStub::UnknownStub> PowerStub;
     typedef ProxyStub::StubType<IPower::INotification, PowerNotificationStubMethods, ProxyStub::UnknownStub> PowerNotificationStub;
+    typedef ProxyStub::StubType<ICrashDummy, CrashDummyStubMethods, ProxyStub::UnknownStub> CrashDummyStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -3237,6 +3251,30 @@ namespace ProxyStubs {
             Invoke(newMessage);
         }
     };
+
+    class CrashDummyProxy : public ProxyStub::UnknownProxyType<ICrashDummy> {
+    public:
+        CrashDummyProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~CrashDummyProxy()
+        {
+        }
+
+    public:
+        // Stub order:
+        // virtual void Crash() = 0;
+        virtual void Crash()
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            Invoke(newMessage);
+        }
+
+    };
+
     // -------------------------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------------------------
@@ -3274,6 +3312,7 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IPower, PowerProxy, PowerStub>();
             RPC::Administrator::Instance().Announce<IPower::INotification, PowerNotificationProxy, PowerNotificationStub>();
             RPC::Administrator::Instance().Announce<IRtspClient, RtspClientProxy, RtspClientStub>();
+            RPC::Administrator::Instance().Announce<ICrashDummy, CrashDummyProxy, CrashDummyStub>();
         }
 
         ~Instantiation()
