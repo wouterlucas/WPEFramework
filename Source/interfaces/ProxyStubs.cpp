@@ -328,17 +328,18 @@ namespace ProxyStubs {
             // virtual uint64_t Malloc(uint64_t size) = 0;
             //
             RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
-            RPC::Data::Frame::Writer response(message->Response().Writer());
             uint64_t size(parameters.Number<uint64_t>());
-            message->Parameters().Implementation<IStream::IControl>()->Position(size);
-            response.Number<uint64_t>(message->Parameters().Implementation<IStream::IControl>()->Position());
+            uint32_t result = message->Parameters().Implementation<IMallocDummy>()->Malloc(size);
+
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            response.Number<uint32_t>(result);
         },
         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual uint64_t GetAllocatedMemory(void) = 0;
             //
             RPC::Data::Frame::Writer response(message->Response().Writer());
-            response.Number<uint64_t>(message->Parameters().Implementation<IStream::IControl>()->Position());
+            response.Number<uint64_t>(message->Parameters().Implementation<IMallocDummy>()->GetAllocatedMemory());
         },
         nullptr
     };
@@ -1987,7 +1988,7 @@ namespace ProxyStubs {
         //virtual uint64_t Malloc(uint64_t size) = 0;
         virtual uint64_t Malloc(uint64_t size)
         {
-            IPCMessage newMessage(BaseClass::Message(2));
+            IPCMessage newMessage(BaseClass::Message(0));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
             writer.Number<uint64_t>(size);
             Invoke(newMessage);
@@ -1997,7 +1998,7 @@ namespace ProxyStubs {
         //virtual uint64_t GetAllocatedMemory(void) = 0;
         virtual uint64_t GetAllocatedMemory(void)
         {
-            IPCMessage newMessage(BaseClass::Message(3));
+            IPCMessage newMessage(BaseClass::Message(1));
             Invoke(newMessage);
             return (newMessage->Response().Reader().Number<uint64_t>());
         }

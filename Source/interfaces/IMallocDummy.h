@@ -8,7 +8,7 @@ namespace Exchange {
 
     struct IMallocDummy : virtual public Core::IUnknown {
         //QA: How to increment interface ID
-        enum { ID = 0x00000011 };
+        enum { ID = 0x11000011 };
 
         virtual ~IMallocDummy() {}
         virtual uint64_t Malloc(uint64_t size) = 0;
