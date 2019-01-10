@@ -1,5 +1,4 @@
-#ifndef __ICRASHDUMMY_H
-#define __ICRASHDUMMY_H
+#pragma once
 
 #include "Module.h"
 
@@ -12,12 +11,9 @@ struct ICrashDummy : virtual public Core::IUnknown {
 
     virtual ~ICrashDummy() {}
 
+    virtual bool Configure(PluginHost::IShell* shell) = 0;
     virtual void Crash() = 0;
-    virtual bool Configure(PluginHost::IShell *shell) = 0;
-
 };
 
-} // Exchange
-} // WPEFramework
-
-#endif // __ICRASHDUMMY_H
+} // namespace Exchange
+} // namespace WPEFramework

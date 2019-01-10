@@ -1649,11 +1649,6 @@ namespace ProxyStubs {
     //
     ProxyStub::MethodHandler CrashDummyStubMethods[] = {
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
-            // virtual void Crash() = 0;
-
-            message->Parameters().Implementation<ICrashDummy>()->Crash();
-        },
-        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             // virtual bool Configure(PluginHost::IShell *shell) = 0;;
             RPC::Data::Input& parameters(message->Parameters());
             RPC::Data::Frame::Reader reader(parameters.Reader());
@@ -1673,6 +1668,10 @@ namespace ProxyStubs {
                     TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
                 }
             }
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
+            // virtual void Crash() = 0;
+            message->Parameters().Implementation<ICrashDummy>()->Crash();
         },
         nullptr
     };
@@ -3280,30 +3279,27 @@ namespace ProxyStubs {
         {
         }
 
-        virtual ~CrashDummyProxy()
-        {
-        }
+        virtual ~CrashDummyProxy() {}
 
     public:
-      // Stub order:
-      // virtual void Crash() = 0;
-      // virtual bool Configure(PluginHost::IShell* service) = 0;
-        virtual void Crash()
-        {
-          IPCMessage newMessage(BaseClass::Message(0));
-          RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
-          Invoke(newMessage);
-        }
-
+        /* Stub order:
+         * virtual bool Configure(PluginHost::IShell* service) = 0;
+         * virtual void Crash() = 0;
+         */
         virtual bool Configure(PluginHost::IShell* service)
         {
-            IPCMessage newMessage(BaseClass::Message(1));
+            IPCMessage newMessage(BaseClass::Message(0));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
             writer.Number<PluginHost::IShell*>(service);
             Invoke(newMessage);
             return (newMessage->Response().Reader().Number<bool>());
         }
 
+        virtual void Crash()
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
+            Invoke(newMessage);
+        }
     };
 
     // -------------------------------------------------------------------------------------------
