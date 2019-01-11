@@ -325,10 +325,10 @@ namespace ProxyStubs {
     ProxyStub::MethodHandler MallocDummyStubMethods[] = {
         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
-            // virtual uint64_t Malloc(uint64_t size) = 0;
+            // virtual uint32_t Malloc(uint32_t size) = 0;
             //
             RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
-            uint64_t size(parameters.Number<uint64_t>());
+            uint32_t size(parameters.Number<uint32_t>());
             uint32_t result = message->Parameters().Implementation<IMallocDummy>()->Malloc(size);
 
             RPC::Data::Frame::Writer response(message->Response().Writer());
@@ -336,10 +336,22 @@ namespace ProxyStubs {
         },
         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
-            // virtual uint64_t GetAllocatedMemory(void) = 0;
+            //  virtual void Free(void) = 0;
+            //
+            message->Parameters().Implementation<IMallocDummy>()->Free();
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            //  virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident) = 0;
             //
             RPC::Data::Frame::Writer response(message->Response().Writer());
-            response.Number<uint64_t>(message->Parameters().Implementation<IMallocDummy>()->GetAllocatedMemory());
+            uint32_t allocated = 0; /* If it would be in->out, you need to read them from the package and fill */
+            uint32_t size = 0;   /* them in here, but these are just out values. */
+            uint32_t resident = 0;
+            message->Parameters().Implementation<IMallocDummy>()->Statm(allocated, size, resident);
+            response.Number<uint32_t>(allocated);
+            response.Number<uint32_t>(size);
+            response.Number<uint32_t>(resident);
         },
         nullptr
     };
@@ -1985,22 +1997,33 @@ namespace ProxyStubs {
         }
 
     public:
-        //virtual uint64_t Malloc(uint64_t size) = 0;
-        virtual uint64_t Malloc(uint64_t size)
+        //virtual uint32_t Malloc(uint32_t size) = 0;
+        virtual uint32_t Malloc(uint32_t size)
         {
             IPCMessage newMessage(BaseClass::Message(0));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
-            writer.Number<uint64_t>(size);
+            writer.Number<uint32_t>(size);
             Invoke(newMessage);
 
-            return (newMessage->Response().Reader().Number<uint64_t>());
+            return (newMessage->Response().Reader().Number<uint32_t>());
         }
-        //virtual uint64_t GetAllocatedMemory(void) = 0;
-        virtual uint64_t GetAllocatedMemory(void)
+
+        //virtual void Free(void) = 0;
+        virtual void Free(void)
         {
             IPCMessage newMessage(BaseClass::Message(1));
             Invoke(newMessage);
-            return (newMessage->Response().Reader().Number<uint64_t>());
+        }
+
+        //virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident) = 0;
+        virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident)
+        {
+            IPCMessage newMessage(BaseClass::Message(2));
+            Invoke(newMessage);
+            RPC::Data::Frame::Reader response(newMessage->Response().Reader());
+            allocated = response.Number<uint32_t>();
+            size = response.Number<uint32_t>();
+            resident = response.Number<uint32_t>();
         }
     };
 

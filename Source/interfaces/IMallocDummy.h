@@ -11,8 +11,9 @@ namespace Exchange {
         enum { ID = 0x11000011 };
 
         virtual ~IMallocDummy() {}
-        virtual uint64_t Malloc(uint64_t size) = 0;
-        virtual uint64_t GetAllocatedMemory(void) = 0;
+        virtual uint32_t Malloc(uint32_t size) = 0;
+        virtual void Free(void) = 0;
+        virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident) = 0;
     };
 }
 }
