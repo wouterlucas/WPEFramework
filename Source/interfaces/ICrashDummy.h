@@ -13,6 +13,10 @@ struct ICrashDummy : virtual public Core::IUnknown {
 
     virtual bool Configure(PluginHost::IShell* shell) = 0;
     virtual void Crash() = 0;
+    virtual bool CrashNTimes(uint8_t n) = 0;
+    virtual void ExecPendingCrash() = 0;
+    virtual uint8_t PendingCrashCount() = 0;
+
 };
 
 } // namespace Exchange
