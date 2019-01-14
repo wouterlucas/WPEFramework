@@ -1,5 +1,4 @@
-#ifndef _IMALLOCDUMMY_H
-#define _IMALLOCDUMMY_H
+#pragma once
 
 #include "Module.h"
 
@@ -7,7 +6,7 @@ namespace WPEFramework {
 namespace Exchange {
 
     struct IMallocDummy : virtual public Core::IUnknown {
-        //QA: How to increment interface ID
+        //ToDo: ID needs to be adjusted
         enum { ID = 0x11000011 };
 
         virtual ~IMallocDummy() {}
@@ -17,5 +16,3 @@ namespace Exchange {
     };
 }
 }
-
-#endif // _IMALLOCDUMMY_H
