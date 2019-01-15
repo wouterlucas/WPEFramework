@@ -17,6 +17,7 @@
 #include "IWebDriver.h"
 #include "IWebServer.h"
 #include "ICrashDummy.h"
+#include "IMallocDummy.h"
 
 MODULE_NAME_DECLARATION(BUILDREF_WEBBRIDGE)
 
@@ -318,6 +319,44 @@ namespace ProxyStubs {
         nullptr
     };
     // IWebDriver interface stub definitions
+
+    //
+    // IMallocDummy interface stub definitions (interface/IMallocDummy.h)
+    //
+    ProxyStub::MethodHandler MallocDummyStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            // virtual uint32_t Malloc(uint32_t size) = 0;
+            //
+            RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
+            uint32_t size(parameters.Number<uint32_t>());
+            uint32_t result = message->Parameters().Implementation<IMallocDummy>()->Malloc(size);
+
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            response.Number<uint32_t>(result);
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            //  virtual void Free(void) = 0;
+            //
+            message->Parameters().Implementation<IMallocDummy>()->Free();
+        },
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            //  virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident) = 0;
+            //
+            RPC::Data::Frame::Writer response(message->Response().Writer());
+            uint32_t allocated = 0; /* If it would be in->out, you need to read them from the package and fill */
+            uint32_t size = 0;   /* them in here, but these are just out values. */
+            uint32_t resident = 0;
+            message->Parameters().Implementation<IMallocDummy>()->Statm(allocated, size, resident);
+            response.Number<uint32_t>(allocated);
+            response.Number<uint32_t>(size);
+            response.Number<uint32_t>(resident);
+        },
+        nullptr
+    };
+    // IMallocDummy interface stub definitions
 
     //
     // IBluetooth interface stub definitions (interface/IBluetooth.h)
@@ -1699,6 +1738,7 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IGuide, GuideStubMethods, ProxyStub::UnknownStub> IGuideStub;
     typedef ProxyStub::StubType<IGuide::INotification, GuideNotificationStubMethods, ProxyStub::UnknownStub> GuideNotificationStub;
     typedef ProxyStub::StubType<IWebDriver, WebDriverStubMethods, ProxyStub::UnknownStub> WebDriverStub;
+    typedef ProxyStub::StubType<IMallocDummy, MallocDummyStubMethods, ProxyStub::UnknownStub> MallocDummyStub;
     typedef ProxyStub::StubType<IContentDecryption, OpenCDMiStubMethods, ProxyStub::UnknownStub> OpenCDMiStub;
     typedef ProxyStub::StubType<IBluetooth, BluetoothStubMethods, ProxyStub::UnknownStub> BluetoothStub;
     typedef ProxyStub::StubType<INetflix, NetflixStubMethods, ProxyStub::UnknownStub> NetflixStub;
@@ -1992,6 +2032,48 @@ namespace ProxyStubs {
             writer.Number<PluginHost::IShell*>(webbridge);
             Invoke(newMessage);
             return (newMessage->Response().Reader().Number<uint32_t>());
+        }
+    };
+
+    class MallocDummyProxy : public ProxyStub::UnknownProxyType<IMallocDummy> {
+    public:
+        MallocDummyProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~MallocDummyProxy()
+        {
+        }
+
+    public:
+        //virtual uint32_t Malloc(uint32_t size) = 0;
+        virtual uint32_t Malloc(uint32_t size)
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Number<uint32_t>(size);
+            Invoke(newMessage);
+
+            return (newMessage->Response().Reader().Number<uint32_t>());
+        }
+
+        //virtual void Free(void) = 0;
+        virtual void Free(void)
+        {
+            IPCMessage newMessage(BaseClass::Message(1));
+            Invoke(newMessage);
+        }
+
+        //virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident) = 0;
+        virtual void Statm(uint32_t &allocated, uint32_t &size, uint32_t &resident)
+        {
+            IPCMessage newMessage(BaseClass::Message(2));
+            Invoke(newMessage);
+            RPC::Data::Frame::Reader response(newMessage->Response().Reader());
+            allocated = response.Number<uint32_t>();
+            size = response.Number<uint32_t>();
+            resident = response.Number<uint32_t>();
         }
     };
 
@@ -3354,6 +3436,7 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IGuide, IGuideProxy, IGuideStub>();
             RPC::Administrator::Instance().Announce<IGuide::INotification, GuideNotificationProxy, GuideNotificationStub>();
             RPC::Administrator::Instance().Announce<IWebDriver, WebDriverProxy, WebDriverStub>();
+            RPC::Administrator::Instance().Announce<IMallocDummy, MallocDummyProxy, MallocDummyStub>();
             RPC::Administrator::Instance().Announce<IContentDecryption, OpenCDMiProxy, OpenCDMiStub>();
             RPC::Administrator::Instance().Announce<IBluetooth, BluetoothProxy, BluetoothStub>();
             RPC::Administrator::Instance().Announce<INetflix, NetflixProxy, NetflixStub>();
