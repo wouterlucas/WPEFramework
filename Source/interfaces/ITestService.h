@@ -5,11 +5,11 @@
 namespace WPEFramework {
 namespace Exchange {
 
-struct ITestDummy : virtual public Core::IUnknown {
+struct ITestService : virtual public Core::IUnknown {
     // ToDo: ID needs to be adjusted
     enum { ID = 0x11000022 };
 
-    virtual ~ITestDummy() {}
+    virtual ~ITestService() {}
 
     virtual uint32_t Malloc(uint32_t size) = 0;
     virtual void Free(void) = 0;

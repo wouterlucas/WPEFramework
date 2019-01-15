@@ -18,7 +18,7 @@
 #include "IWebServer.h"
 #include "ICrashDummy.h"
 #include "IMallocDummy.h"
-#include "ITestDummy.h"
+#include "ITestService.h"
 
 MODULE_NAME_DECLARATION(BUILDREF_WEBBRIDGE)
 
@@ -360,16 +360,16 @@ namespace ProxyStubs {
     // IMallocDummy interface stub definitions
 
     //
-    // ITestDummy interface stub definitions (interface/ITestDummy.h)
+    // ITestService interface stub definitions (interface/ITestService.h)
     //
-    ProxyStub::MethodHandler TestDummyStubMethods[] = {
+    ProxyStub::MethodHandler TestServiceStubMethods[] = {
         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual uint32_t Malloc(uint32_t size) = 0;
             //
             RPC::Data::Frame::Reader parameters(message->Parameters().Reader());
             uint32_t size(parameters.Number<uint32_t>());
-            uint32_t result = message->Parameters().Implementation<ITestDummy>()->Malloc(size);
+            uint32_t result = message->Parameters().Implementation<ITestService>()->Malloc(size);
 
             RPC::Data::Frame::Writer response(message->Response().Writer());
             response.Number<uint32_t>(result);
@@ -378,7 +378,7 @@ namespace ProxyStubs {
             //
             //  virtual void Free(void) = 0;
             //
-            message->Parameters().Implementation<ITestDummy>()->Free();
+            message->Parameters().Implementation<ITestService>()->Free();
         },
         [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
@@ -388,7 +388,7 @@ namespace ProxyStubs {
             uint32_t allocated = 0; /* If it would be in->out, you need to read them from the package and fill */
             uint32_t size = 0;   /* them in here, but these are just out values. */
             uint32_t resident = 0;
-            message->Parameters().Implementation<ITestDummy>()->Statm(allocated, size, resident);
+            message->Parameters().Implementation<ITestService>()->Statm(allocated, size, resident);
             response.Number<uint32_t>(allocated);
             response.Number<uint32_t>(size);
             response.Number<uint32_t>(resident);
@@ -407,7 +407,7 @@ namespace ProxyStubs {
                 writer.Number<bool>(false);
             }
             else {
-                writer.Number(message->Parameters().Implementation<ITestDummy>()->Configure(proxy));
+                writer.Number(message->Parameters().Implementation<ITestService>()->Configure(proxy));
                 if (proxy->Release() != Core::ERROR_NONE) {
                     TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
                 }
@@ -417,7 +417,7 @@ namespace ProxyStubs {
             //
             // virtual void Crash() = 0;
             //
-            message->Parameters().Implementation<ITestDummy>()->Crash();
+            message->Parameters().Implementation<ITestService>()->Crash();
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
@@ -427,24 +427,24 @@ namespace ProxyStubs {
             RPC::Data::Frame::Writer writer(message->Response().Writer());
 
             uint8_t n(parameters.Number<uint8_t>());
-            writer.Number(message->Parameters().Implementation<ITestDummy>()->CrashNTimes(n));
+            writer.Number(message->Parameters().Implementation<ITestService>()->CrashNTimes(n));
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual void ExecPendingCrash() = 0;
             //
-            message->Parameters().Implementation<ITestDummy>()->ExecPendingCrash();
+            message->Parameters().Implementation<ITestService>()->ExecPendingCrash();
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual uint8_t PendingCrashCount() = 0;
             //
             RPC::Data::Frame::Writer writer(message->Response().Writer());
-            writer.Number(message->Parameters().Implementation<ITestDummy>()->PendingCrashCount());
+            writer.Number(message->Parameters().Implementation<ITestService>()->PendingCrashCount());
         },
         nullptr
     };
-    // ITestDummy interface stub definitions
+    // ITestService interface stub definitions
 
     //
     // IBluetooth interface stub definitions (interface/IBluetooth.h)
@@ -1853,7 +1853,7 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IPower, PowerStubMethods, ProxyStub::UnknownStub> PowerStub;
     typedef ProxyStub::StubType<IPower::INotification, PowerNotificationStubMethods, ProxyStub::UnknownStub> PowerNotificationStub;
     typedef ProxyStub::StubType<ICrashDummy, CrashDummyStubMethods, ProxyStub::UnknownStub> CrashDummyStub;
-    typedef ProxyStub::StubType<ITestDummy, TestDummyStubMethods, ProxyStub::UnknownStub> TestDummyStub;
+    typedef ProxyStub::StubType<ITestService, TestServiceStubMethods, ProxyStub::UnknownStub> TestServiceStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -2166,14 +2166,14 @@ namespace ProxyStubs {
         }
     };
 
-    class TestDummyProxy : public ProxyStub::UnknownProxyType<ITestDummy> {
+    class TestServiceProxy : public ProxyStub::UnknownProxyType<ITestService> {
     public:
-        TestDummyProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+        TestServiceProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
             : BaseClass(channel, implementation, otherSideInformed)
         {
         }
 
-        virtual ~TestDummyProxy()
+        virtual ~TestServiceProxy()
         {
         }
 
@@ -3638,7 +3638,7 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IPower::INotification, PowerNotificationProxy, PowerNotificationStub>();
             RPC::Administrator::Instance().Announce<IRtspClient, RtspClientProxy, RtspClientStub>();
             RPC::Administrator::Instance().Announce<ICrashDummy, CrashDummyProxy, CrashDummyStub>();
-            RPC::Administrator::Instance().Announce<ITestDummy, TestDummyProxy, TestDummyStub>();
+            RPC::Administrator::Instance().Announce<ITestService, TestServiceProxy, TestServiceStub>();
         }
 
         ~Instantiation()
