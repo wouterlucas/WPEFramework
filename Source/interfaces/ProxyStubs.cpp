@@ -2217,7 +2217,7 @@ namespace ProxyStubs {
 
         virtual bool Configure(PluginHost::IShell* service)
         {
-            IPCMessage newMessage(BaseClass::Message(0));
+            IPCMessage newMessage(BaseClass::Message(3));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
             writer.Number<PluginHost::IShell*>(service);
             Invoke(newMessage);
@@ -2226,13 +2226,13 @@ namespace ProxyStubs {
 
         virtual void Crash()
         {
-            IPCMessage newMessage(BaseClass::Message(1));
+            IPCMessage newMessage(BaseClass::Message(4));
             Invoke(newMessage);
         }
 
         virtual bool CrashNTimes(uint8_t n)
         {
-            IPCMessage newMessage(BaseClass::Message(2));
+            IPCMessage newMessage(BaseClass::Message(5));
             RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
             writer.Number<uint8_t>(n);
             Invoke(newMessage);
@@ -2240,13 +2240,13 @@ namespace ProxyStubs {
         }
 
         virtual void ExecPendingCrash() {
-            IPCMessage newMessage(BaseClass::Message(3));
+            IPCMessage newMessage(BaseClass::Message(6));
             Invoke(newMessage);
         }
 
         virtual uint8_t PendingCrashCount()
         {
-            IPCMessage newMessage(BaseClass::Message(4));
+            IPCMessage newMessage(BaseClass::Message(7));
             Invoke(newMessage);
             return (newMessage->Response().Reader().Number<uint8_t>());
         }
