@@ -7,7 +7,7 @@ namespace Exchange {
 
 struct ITestDummy : virtual public Core::IUnknown {
     // ToDo: ID needs to be adjusted
-    enum { ID = 0x11000011 };
+    enum { ID = 0x11000022 };
 
     virtual ~ITestDummy() {}
 
