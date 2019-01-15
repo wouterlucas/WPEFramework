@@ -39,6 +39,7 @@ set(PUBLIC_HEADERS
         IWebDriver.h
         IWebServer.h
         IMallocDummy.h
+        ITestDummy.h
         Module.h
         )
 
