@@ -407,7 +407,7 @@ namespace ProxyStubs {
                 writer.Number<bool>(false);
             }
             else {
-                writer.Number(message->Parameters().Implementation<ICrashDummy>()->Configure(proxy));
+                writer.Number(message->Parameters().Implementation<ITestDummy>()->Configure(proxy));
                 if (proxy->Release() != Core::ERROR_NONE) {
                     TRACE_L1("Oops seems like we did not maintain a reference to this sink. %d", __LINE__);
                 }
@@ -417,7 +417,7 @@ namespace ProxyStubs {
             //
             // virtual void Crash() = 0;
             //
-            message->Parameters().Implementation<ICrashDummy>()->Crash();
+            message->Parameters().Implementation<ITestDummy>()->Crash();
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
@@ -427,20 +427,20 @@ namespace ProxyStubs {
             RPC::Data::Frame::Writer writer(message->Response().Writer());
 
             uint8_t n(parameters.Number<uint8_t>());
-            writer.Number(message->Parameters().Implementation<ICrashDummy>()->CrashNTimes(n));
+            writer.Number(message->Parameters().Implementation<ITestDummy>()->CrashNTimes(n));
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual void ExecPendingCrash() = 0;
             //
-            message->Parameters().Implementation<ICrashDummy>()->ExecPendingCrash();
+            message->Parameters().Implementation<ITestDummy>()->ExecPendingCrash();
         },
         [](Core::ProxyType<Core::IPCChannel>& channel VARIABLE_IS_NOT_USED, Core::ProxyType<RPC::InvokeMessage>& message) {
             //
             // virtual uint8_t PendingCrashCount() = 0;
             //
             RPC::Data::Frame::Writer writer(message->Response().Writer());
-            writer.Number(message->Parameters().Implementation<ICrashDummy>()->PendingCrashCount());
+            writer.Number(message->Parameters().Implementation<ITestDummy>()->PendingCrashCount());
         },
         nullptr
     };
