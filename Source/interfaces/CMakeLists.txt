@@ -40,6 +40,8 @@ set(PUBLIC_HEADERS
         IWebServer.h
         IMallocDummy.h
         ITestService.h
+        ITest.h
+        ITestController.h
         Module.h
         )
 
