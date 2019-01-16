@@ -364,7 +364,7 @@ namespace ProxyStubs {
 
             ASSERT((proxy != nullptr) && "Failed to create proxy");
             if (proxy == nullptr) {
-                TRACE_L1(_T("Could not create a stub for ICrashDummy: %p"), implementation);
+                TRACE_L1(_T("Could not create a stub for ITestService: %p"), implementation);
                 writer.Number<bool>(false);
             }
             else {
