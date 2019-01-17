@@ -16,7 +16,6 @@ set(PUBLIC_HEADERS
         ICommand.h
         IComposition.h
         IContentDecryption.h
-        ICrashDummy.h
         IDictionary.h
         IDRM.h
         IExternal.h
@@ -38,9 +37,6 @@ set(PUBLIC_HEADERS
         IRtspClient.h
         IWebDriver.h
         IWebServer.h
-        IMallocDummy.h
-        ITestService.h
-        ITest.h
         ITestController.h
         Module.h
         )
