@@ -24,7 +24,7 @@ namespace OCDM {
         // events originated from the session.
         struct ICallback : virtual public WPEFramework::Core::IUnknown
         {
-            enum { ID = 0x00000013 };
+            enum { ID = 0x00000213 };
 
             virtual ~ICallback() {}
 
@@ -47,7 +47,7 @@ namespace OCDM {
             virtual void OnKeyStatusUpdate(const ISession::KeyStatus status) = 0;
         };
 
-        enum { ID = 0x00000012 };
+        enum { ID = 0x00000212 };
 
         virtual ~ISession(void) {}
 
@@ -81,7 +81,7 @@ namespace OCDM {
     // TODO: should derive from ISession?
     struct ISessionExt : virtual public WPEFramework::Core::IUnknown
     {
-        enum { ID = 0x00000072 };
+        enum { ID = 0x00000272 };
 
         enum LicenseTypeExt {
             Invalid = 0,
@@ -127,11 +127,11 @@ namespace OCDM {
 
     struct IAccessorOCDM : virtual public WPEFramework::Core::IUnknown {
 
-        enum { ID = 0x00000010 };
+        enum { ID = 0x00000210 };
 
         struct INotification : virtual public WPEFramework::Core::IUnknown {
 
-            enum { ID = 0x00000011 };
+            enum { ID = 0x00000211 };
 
             virtual ~INotification () {}
 
@@ -180,7 +180,7 @@ namespace OCDM {
 
     struct IAccessorOCDMExt : virtual public WPEFramework::Core::IUnknown {
 
-        enum { ID = 0x00000071 };
+        enum { ID = 0x00000271 };
 
         virtual time_t GetDrmSystemTime() const = 0;
 
