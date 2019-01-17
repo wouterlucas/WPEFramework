@@ -16,6 +16,7 @@
 #include "ITVControl.h"
 #include "IWebDriver.h"
 #include "IWebServer.h"
+#include "ITestController.h"
 
 MODULE_NAME_DECLARATION(BUILDREF_WEBBRIDGE)
 
@@ -1644,6 +1645,28 @@ namespace ProxyStubs {
         nullptr
     };
 
+    //
+    // ITestController interface stub definitions (interface/ITestController.h)
+    //
+    ProxyStub::MethodHandler TestControllerStubMethods[] = {
+        [](Core::ProxyType<Core::IPCChannel>& channel, Core::ProxyType<RPC::InvokeMessage>& message) {
+            //
+            //  virtual string /*JSON*/ Process(const string& path, const uint8_t skipUrl, const string& body /*JSON*/) = 0;
+            //
+            //
+            RPC::Data::Input& parameters(message->Parameters());
+            RPC::Data::Frame::Reader reader(parameters.Reader());
+            const string path(reader.Text());
+            const uint8_t skipUrl(reader.Number<uint8_t>());
+            const string body(reader.Text());
+            string result = parameters.Implementation<ITestController>()->Process(path, skipUrl, body);
+            RPC::Data::Frame::Writer writer(message->Response().Writer());
+            writer.Text(result);
+        },
+        nullptr
+    };
+    // ITestController interface stub definitions
+
     // IRPCLink::INotification interface stub definitions
 
     typedef ProxyStub::StubType<IBrowser, BrowserStubMethods, ProxyStub::UnknownStub> BrowserStub;
@@ -1676,6 +1699,7 @@ namespace ProxyStubs {
     typedef ProxyStub::StubType<IRtspClient, RtspClientStubMethods, ProxyStub::UnknownStub> RtspClientStub;
     typedef ProxyStub::StubType<IPower, PowerStubMethods, ProxyStub::UnknownStub> PowerStub;
     typedef ProxyStub::StubType<IPower::INotification, PowerNotificationStubMethods, ProxyStub::UnknownStub> PowerNotificationStub;
+    typedef ProxyStub::StubType<IPower::INotification, TestControllerStubMethods, ProxyStub::UnknownStub> TestControllerStub;
 
     // -------------------------------------------------------------------------------------------
     // PROXY
@@ -3239,6 +3263,31 @@ namespace ProxyStubs {
         }
     };
 
+    class TestControllerProxy : public ProxyStub::UnknownProxyType<ITestController> {
+    public:
+        TestControllerProxy(Core::ProxyType<Core::IPCChannel>& channel, void* implementation, const bool otherSideInformed)
+            : BaseClass(channel, implementation, otherSideInformed)
+        {
+        }
+
+        virtual ~TestControllerProxy()
+        {
+        }
+
+    public:
+        virtual string Process(const string& path, const uint8_t skipUrl, const string& body)
+        {
+            IPCMessage newMessage(BaseClass::Message(0));
+            RPC::Data::Frame::Writer writer(newMessage->Parameters().Writer());
+            writer.Text(path);
+            writer.Number<uint8_t>(skipUrl);
+            writer.Text(body);
+            Invoke(newMessage);
+
+            return (newMessage->Response().Reader().Text());
+        }
+    };
+
     // -------------------------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------------------------
@@ -3276,6 +3325,7 @@ namespace ProxyStubs {
             RPC::Administrator::Instance().Announce<IPower, PowerProxy, PowerStub>();
             RPC::Administrator::Instance().Announce<IPower::INotification, PowerNotificationProxy, PowerNotificationStub>();
             RPC::Administrator::Instance().Announce<IRtspClient, RtspClientProxy, RtspClientStub>();
+            RPC::Administrator::Instance().Announce<ITestController, TestControllerProxy, TestControllerStub>();
         }
 
         ~Instantiation()
